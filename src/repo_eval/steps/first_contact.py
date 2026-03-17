@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 import subprocess
-import textwrap
 from pathlib import Path
 from typing import Optional
 
@@ -30,7 +29,6 @@ def _fetch_readme(ctx: StepContext) -> Optional[str]:
         except Exception:
             pass
 
-    # Try local
     for name in ("README.md", "README.rst", "README.txt", "README"):
         for base in (Path(ctx.target), Path.cwd()):
             p = base / name
@@ -49,21 +47,17 @@ class Step:
 
         if example:
             example_file.write_text(example)
+            # Real execution: shows the code then runs it for real
             script.write_text(f"""#!/bin/bash
-echo "# Step 2: Running the README example as-is"
-sleep 0.5
-echo '--- Code from README ---'
+echo "\\$ cat readme_example.py"
 cat {example_file}
 echo ""
-sleep 0.5
-echo '$ python readme_example.py'
+echo "\\$ python readme_example.py"
 {ctx.python_bin} {example_file} 2>&1
-sleep 1.5
 """)
         else:
             script.write_text("""#!/bin/bash
-echo "# Step 2: No Python example found in README"
-sleep 1
+echo "No Python example found in README"
 """)
 
         script.chmod(0o755)
@@ -90,7 +84,6 @@ sleep 1
             ))
             return annotations
 
-        # Write and run the example
         example_file = ctx.output_dir / "readme_example.py"
         example_file.write_text(example)
 
@@ -106,7 +99,6 @@ sleep 1
                 "The first Python example in README executes without errors.",
             ))
         else:
-            # Some packages filter tracebacks to stdout, so check both
             combined = (result.stderr + "\n" + result.stdout).strip()
             error_lines = combined.split("\n")
             error_line = "unknown error"

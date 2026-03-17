@@ -33,7 +33,6 @@ class EvalRunner:
         self.venv_path = self.output_dir / ".venv"
         self.python_bin = self.venv_path / "bin" / "python"
         self.recordings_dir = self.output_dir / "recordings"
-        self.assets_dir = self.output_dir / "assets"
 
         try:
             self.recorder = Recorder() if not skip_recording else None
@@ -63,7 +62,12 @@ class EvalRunner:
 
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
-        # Get version
+        # Also install pip inside venv so scripts can use it
+        subprocess.run(
+            ["uv", "pip", "install", "pip", "--python", str(self.python_bin)],
+            capture_output=True, text=True,
+        )
+
         pkg_import = pkg.replace("-", "_")
         result = subprocess.run(
             [str(self.python_bin), "-c", f"import {pkg_import}; print({pkg_import}.__version__)"],
@@ -74,7 +78,6 @@ class EvalRunner:
     def run_all(self) -> Findings:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.recordings_dir.mkdir(exist_ok=True)
-        self.assets_dir.mkdir(exist_ok=True)
 
         self._setup_venv()
         version = self._install_package()
@@ -102,7 +105,6 @@ class EvalRunner:
             result = self._run_step(step_config, i)
             findings.steps.append(result)
 
-        # Calculate overall score
         total = len(findings.steps)
         if total > 0:
             scores = []
@@ -131,24 +133,20 @@ class EvalRunner:
             package_name=pkg.replace("-", "_"),
         )
 
-        recording_svg = None
         recording_cast = None
-
-        # Generate script and record
         t0 = time.time()
+
+        # Generate script (real commands) and record execution
         try:
             script_path = step.generate_script(ctx)
             if self.recorder and script_path.exists():
                 cast_path = self.recordings_dir / f"{order:02d}-{step_config.id}.cast"
-                svg_path = self.assets_dir / f"{order:02d}-{step_config.id}.svg"
                 self.recorder.record(script_path, cast_path)
-                self.recorder.to_svg(cast_path, svg_path)
                 recording_cast = str(cast_path.relative_to(self.output_dir))
-                recording_svg = str(svg_path.relative_to(self.output_dir))
         except Exception as e:
             print(f"  Recording failed: {e}")
 
-        # Evaluate
+        # Evaluate (programmatic checks)
         try:
             annotations = step.evaluate(ctx)
         except Exception as e:
@@ -168,7 +166,6 @@ class EvalRunner:
             order=order,
             status=status,
             annotations=annotations,
-            recording_svg=recording_svg,
             recording_cast=recording_cast,
             duration_seconds=round(duration, 2),
         )

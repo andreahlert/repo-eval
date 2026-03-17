@@ -1,4 +1,4 @@
-"""Step 6: Dependency analysis."""
+"""Step 4: Dependency analysis."""
 
 from __future__ import annotations
 
@@ -12,38 +12,40 @@ from repo_eval.steps.base import StepContext
 class Step:
     def generate_script(self, ctx: StepContext) -> Path:
         script = ctx.output_dir / "deps.sh"
+        # Real execution: actually inspects the installed package
         script.write_text(f"""#!/bin/bash
-echo "# Step: Dependencies & Weight"
-sleep 0.5
-echo '--- Direct dependencies ---'
+export PATH="{ctx.venv_path}/bin:$PATH"
+
+echo "\\$ python -c \\"# list direct dependencies\\""
 {ctx.python_bin} -c "
 import importlib.metadata
 deps = importlib.metadata.requires('{ctx.pkg}')
 if deps:
     core = [d for d in deps if '; extra' not in d]
-    print(f'Direct: {{len(core)}}')
+    print(f'Direct dependencies: {{len(core)}}')
     for d in sorted(core):
         print(f'  {{d}}')
 else:
-    print('No dependencies metadata found')
+    print('No dependency metadata found')
 " 2>&1
-sleep 0.5
+
 echo ""
-echo '--- Total packages ---'
+echo "\\$ python -c \\"# count total packages\\""
 {ctx.python_bin} -c "
 import importlib.metadata
-print(f'Total: {{len(list(importlib.metadata.distributions()))}}')
+pkgs = list(importlib.metadata.distributions())
+print(f'Total packages in environment: {{len(pkgs)}}')
 " 2>&1
-sleep 0.5
+
 echo ""
-echo '--- Import time ---'
+echo "\\$ python -c \\"# measure import time\\""
 {ctx.python_bin} -c "
 import time
 start = time.time()
 import {ctx.pkg}
-print(f'Import time: {{time.time() - start:.3f}}s')
+elapsed = time.time() - start
+print(f'Import time: {{elapsed:.3f}}s')
 " 2>&1
-sleep 1
 """)
         script.chmod(0o755)
         return script
@@ -51,7 +53,6 @@ sleep 1
     def evaluate(self, ctx: StepContext) -> list[Annotation]:
         annotations = []
 
-        # Count direct deps
         result = subprocess.run(
             [str(ctx.python_bin), "-c", f"""
 import importlib.metadata
@@ -84,7 +85,6 @@ else:
                     "Reasonable dependency count.",
                 ))
 
-            # Check for pinned versions (==)
             pinned = [d for d in dep_list if "==" in d]
             if pinned:
                 annotations.append(Annotation(
@@ -93,7 +93,6 @@ else:
                     Category.UX,
                 ))
 
-        # Count total packages
         result = subprocess.run(
             [str(ctx.python_bin), "-c",
              "import importlib.metadata; print(len(list(importlib.metadata.distributions())))"],

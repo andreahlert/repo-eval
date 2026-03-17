@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import subprocess
-import time
 from pathlib import Path
 
 from repo_eval.models import Annotation, Category, Severity
@@ -14,29 +13,38 @@ class Step:
     def generate_script(self, ctx: StepContext) -> Path:
         script = ctx.output_dir / "setup.sh"
         pyver = ctx.params.get("python_version", "3.12")
-        # Script only demonstrates commands and runs lightweight checks.
-        # The venv and install are already done by the runner.
+        # Real execution: actually runs pip install and tests import
         script.write_text(f"""#!/bin/bash
-echo "# Step 1: Install {ctx.pkg}"
-sleep 0.3
-echo '$ uv venv .venv --python {pyver}'
-echo "Using CPython {pyver}"
-echo 'Creating virtual environment at: .venv'
-sleep 0.3
+set -e
+export PATH="{ctx.venv_path}/bin:$PATH"
+
+echo "\\$ pip install {ctx.pkg}"
+{ctx.python_bin} -m pip install {ctx.pkg} 2>&1 || echo "[INSTALL FAILED]"
+
 echo ""
-echo '$ uv pip install {ctx.pkg}'
+echo "\\$ python -c \\"import {ctx.pkg}; print({ctx.pkg}.__version__)\\""
+{ctx.python_bin} -c "import {ctx.pkg}; print({ctx.pkg}.__version__)" 2>&1 || echo "[IMPORT FAILED]"
+
+echo ""
+echo "\\$ python -c \\"import importlib.metadata; ...\\"  # count packages"
 {ctx.python_bin} -c "
 import importlib.metadata
-for d in importlib.metadata.requires('{ctx.pkg}') or []:
-    if '; extra' not in d:
-        print(f'  Installed {{d}}')
+deps = importlib.metadata.requires('{ctx.pkg}')
+core = [d for d in (deps or []) if '; extra' not in d]
+total = len(list(importlib.metadata.distributions()))
+print(f'Direct dependencies: {{len(core)}}')
+print(f'Total packages: {{total}}')
 " 2>&1
-echo "  Installed {ctx.pkg}"
-sleep 0.3
+
 echo ""
-echo '$ python -c "import {ctx.pkg}; print({ctx.pkg}.__version__)"'
-{ctx.python_bin} -c "import {ctx.pkg}; print({ctx.pkg}.__version__)" 2>&1
-sleep 1
+echo "\\$ python -c \\"import time; import {ctx.pkg}\\"  # measure import time"
+{ctx.python_bin} -c "
+import time
+start = time.time()
+import {ctx.pkg}
+elapsed = time.time() - start
+print(f'Import time: {{elapsed:.3f}}s')
+" 2>&1
 """)
         script.chmod(0o755)
         return script
@@ -70,7 +78,7 @@ sleep 1
         if ver.returncode != 0:
             annotations.append(Annotation(
                 Severity.WARNING, "No __version__",
-                f"Package has no `__version__` attribute.",
+                "Package has no `__version__` attribute.",
                 Category.UX,
             ))
 
@@ -86,16 +94,17 @@ sleep 1
             if count > max_pkgs:
                 annotations.append(Annotation(
                     Severity.WARNING, f"{count} total packages installed",
-                    f"Heavy dependency tree ({count} packages). May cause conflicts.",
+                    f"Heavy dependency tree ({count} packages). Threshold: {max_pkgs}.",
                     Category.UX,
                 ))
             else:
                 annotations.append(Annotation(
                     Severity.PASS, f"{count} packages installed",
-                    f"Reasonable dependency weight.",
+                    "Reasonable dependency weight.",
                 ))
 
         # Measure import time
+        import time
         t0 = time.time()
         subprocess.run(
             [str(ctx.python_bin), "-c", f"import {ctx.pkg}"],

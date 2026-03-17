@@ -21,19 +21,13 @@ class Step:
             f"{pkg} --help",
         ])
 
-        lines = [
-            "#!/bin/bash",
-            f'echo "# Step 3: CLI Usage"',
-            "sleep 0.5",
-        ]
+        lines = ["#!/bin/bash", f'export PATH="{ctx.venv_path}/bin:$PATH"', ""]
         for cmd in commands:
             resolved = cmd.replace("{package}", pkg).replace("{bin}", str(cli_bin))
-            lines.append(f"echo '$ {resolved}'")
-            lines.append(f"{resolved} 2>&1 | head -40")
-            lines.append("sleep 0.5")
+            lines.append(f'echo "\\$ {resolved}"')
+            lines.append(f"{resolved} 2>&1")
             lines.append('echo ""')
 
-        lines.append("sleep 1")
         script.write_text("\n".join(lines))
         script.chmod(0o755)
         return script
@@ -43,9 +37,7 @@ class Step:
         pkg = ctx.pkg
         cli_bin = ctx.venv_path / "bin" / pkg
 
-        # Check if CLI exists
         if not cli_bin.exists():
-            # Also check PATH via venv
             found = shutil.which(pkg, path=str(ctx.venv_path / "bin"))
             if not found:
                 annotations.append(Annotation(
@@ -56,11 +48,11 @@ class Step:
                 return annotations
             cli_bin = Path(found)
 
-        # Test --version
+        env = {"PATH": str(ctx.venv_path / "bin"), "HOME": str(Path.home())}
+
         result = subprocess.run(
             [str(cli_bin), "--version"],
-            capture_output=True, text=True, timeout=15,
-            env={"PATH": str(ctx.venv_path / "bin"), "HOME": str(Path.home())},
+            capture_output=True, text=True, timeout=15, env=env,
         )
         if result.returncode == 0:
             annotations.append(Annotation(
@@ -74,11 +66,9 @@ class Step:
                 Category.UX,
             ))
 
-        # Test --help
         result = subprocess.run(
             [str(cli_bin), "--help"],
-            capture_output=True, text=True, timeout=15,
-            env={"PATH": str(ctx.venv_path / "bin"), "HOME": str(Path.home())},
+            capture_output=True, text=True, timeout=15, env=env,
         )
         if result.returncode == 0:
             annotations.append(Annotation(
