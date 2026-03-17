@@ -193,6 +193,12 @@ class LiveRunner:
 
     def _run_pipeline(self) -> None:
         self._running = True
+        # Wait for at least one browser client to connect
+        for _ in range(50):  # up to 5 seconds
+            if self._clients:
+                break
+            time.sleep(0.1)
+
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.recordings_dir.mkdir(exist_ok=True)
 
@@ -279,13 +285,10 @@ class LiveRunner:
                     self.send_header("Access-Control-Allow-Origin", "*")
                     self.end_headers()
 
-                    q: queue.Queue = queue.Queue(maxsize=1000)
+                    q: queue.Queue = queue.Queue(maxsize=5000)
                     runner._clients.append(q)
 
-                    for evt in runner._events:
-                        self.wfile.write(f"data: {json.dumps(evt)}\n\n".encode())
-                        self.wfile.flush()
-
+                    # Stream only new events from now on (no replay)
                     try:
                         while True:
                             try:
