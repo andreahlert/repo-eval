@@ -2,6 +2,7 @@
 name = "repo-eval"
 version = "0.1.0"
 description = "Analyze Python packages for adoption barriers and generate HTML reports"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 dependencies = [
     "click>=8.1",
