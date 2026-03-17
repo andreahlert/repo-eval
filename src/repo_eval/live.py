@@ -51,28 +51,27 @@ class LiveRunner:
         self.recordings_dir = self.output_dir / "recordings"
 
         self._clients: list[queue.Queue] = []
-        self._events: list[dict] = []
         self._running = False
+        self._run_id = 0  # increments on each run to invalidate old clients
 
     def _broadcast(self, event_type: str, data: dict) -> None:
         event = {"type": event_type, **data}
-        self._events.append(event)
+        dead = []
         for q in self._clients:
             try:
                 q.put_nowait(event)
             except queue.Full:
-                pass
+                dead.append(q)
+        for q in dead:
+            self._clients.remove(q)
 
     def _reset(self) -> None:
-        self._events.clear()
-        # Clean venv so next run starts fresh
         if self.venv_path.exists():
             shutil.rmtree(self.venv_path, ignore_errors=True)
         if self.recordings_dir.exists():
             shutil.rmtree(self.recordings_dir, ignore_errors=True)
 
     def _run_streamed(self, cmd: list[str], step_id: str = "_setup") -> int:
-        """Run a command and stream its output to the browser."""
         proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
         )
@@ -82,7 +81,6 @@ class LiveRunner:
         return proc.returncode
 
     def _setup_and_install(self) -> Optional[str]:
-        """Create venv and install package, streaming everything to _setup terminal."""
         pkg = self.config.package_name or self.target
 
         self._broadcast("terminal", {"step_id": "_setup", "data": f"$ uv venv .venv --python {self.config.python_version}\n"})
@@ -99,13 +97,11 @@ class LiveRunner:
             cmd = ["uv", "pip", "install", self.target, "--python", str(self.python_bin)]
         self._run_streamed(cmd, "_setup")
 
-        # Install pip silently
         subprocess.run(
             ["uv", "pip", "install", "pip", "--python", str(self.python_bin)],
             capture_output=True, text=True,
         )
 
-        # Check version
         pkg_import = pkg.replace("-", "_")
         self._broadcast("terminal", {"step_id": "_setup", "data": f"\n$ python -c \"import {pkg_import}; print({pkg_import}.__version__)\"\n"})
         result = subprocess.run(
@@ -113,11 +109,7 @@ class LiveRunner:
             capture_output=True, text=True,
         )
         version = result.stdout.strip() if result.returncode == 0 else None
-        if version:
-            self._broadcast("terminal", {"step_id": "_setup", "data": f"{version}\n"})
-        else:
-            self._broadcast("terminal", {"step_id": "_setup", "data": "(no __version__ found)\n"})
-
+        self._broadcast("terminal", {"step_id": "_setup", "data": f"{version or '(not found)'}\n"})
         return version
 
     def _run_step_live(self, step_config, order: int) -> StepResult:
@@ -152,16 +144,10 @@ class LiveRunner:
                     bufsize=1,
                 )
                 for line in iter(proc.stdout.readline, ""):
-                    self._broadcast("terminal", {
-                        "step_id": step_config.id,
-                        "data": line,
-                    })
+                    self._broadcast("terminal", {"step_id": step_config.id, "data": line})
                 proc.wait()
         except Exception as e:
-            self._broadcast("terminal", {
-                "step_id": step_config.id,
-                "data": f"\n[ERROR] {e}\n",
-            })
+            self._broadcast("terminal", {"step_id": step_config.id, "data": f"\n[ERROR] {e}\n"})
 
         try:
             annotations = step.evaluate(ctx)
@@ -183,21 +169,13 @@ class LiveRunner:
         })
 
         return StepResult(
-            step_id=step_config.id,
-            step_name=step_config.name,
-            order=order,
-            status=status,
-            annotations=annotations,
-            duration_seconds=round(duration, 2),
+            step_id=step_config.id, step_name=step_config.name, order=order,
+            status=status, annotations=annotations, duration_seconds=round(duration, 2),
         )
 
     def _run_pipeline(self) -> None:
         self._running = True
-        # Wait for at least one browser client to connect
-        for _ in range(50):  # up to 5 seconds
-            if self._clients:
-                break
-            time.sleep(0.1)
+        my_run_id = self._run_id
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.recordings_dir.mkdir(exist_ok=True)
@@ -207,7 +185,6 @@ class LiveRunner:
         if self.step_filter:
             enabled_steps = [s for s in enabled_steps if s.id in self.step_filter]
 
-        # Send init FIRST so the UI renders immediately with setup + all steps
         all_steps = [{"id": "_setup", "name": "Environment Setup"}] + \
                     [{"id": s.id, "name": s.name} for s in enabled_steps]
 
@@ -221,7 +198,7 @@ class LiveRunner:
             "total_steps": len(all_steps),
         })
 
-        # Setup step: streamed to browser
+        # Setup
         self._broadcast("step_start", {"step_id": "_setup", "step_name": "Environment Setup", "order": 0})
         t0 = time.time()
         version = self._setup_and_install()
@@ -230,12 +207,16 @@ class LiveRunner:
             "step_id": "_setup",
             "status": "pass" if version else "warning",
             "duration": setup_duration,
-            "annotations": [{"severity": "pass", "title": f"Installed {pkg} {version or '(unknown)'}", "detail": f"Virtual environment created with Python {self.config.python_version}.", "category": None}],
+            "annotations": [{"severity": "pass", "title": f"Installed {pkg} {version or '(unknown)'}", "detail": f"Python {self.config.python_version} virtual environment.", "category": None}],
         })
 
-        # Update title with version
         if version:
             self._broadcast("version", {"package_version": version})
+
+        # Abort if a new run started
+        if self._run_id != my_run_id:
+            self._running = False
+            return
 
         findings = Findings(
             package_name=pkg, package_version=version,
@@ -248,6 +229,8 @@ class LiveRunner:
         )
 
         for i, sc in enumerate(enabled_steps, 1):
+            if self._run_id != my_run_id:
+                break
             result = self._run_step_live(sc, i)
             findings.steps.append(result)
 
@@ -262,6 +245,7 @@ class LiveRunner:
         self._running = False
 
     def _start_pipeline_thread(self) -> None:
+        self._run_id += 1
         t = threading.Thread(target=self._run_pipeline, daemon=True)
         t.start()
 
@@ -288,7 +272,6 @@ class LiveRunner:
                     q: queue.Queue = queue.Queue(maxsize=5000)
                     runner._clients.append(q)
 
-                    # Stream only new events from now on (no replay)
                     try:
                         while True:
                             try:
@@ -314,9 +297,10 @@ class LiveRunner:
                 parsed = urlparse(self.path)
 
                 if parsed.path == "/rerun":
-                    if not runner._running:
-                        runner._reset()
-                        runner._start_pipeline_thread()
+                    # Reset and restart - pipeline starts immediately,
+                    # the client will reconnect SSE and get init event
+                    runner._reset()
+                    runner._start_pipeline_thread()
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -325,10 +309,9 @@ class LiveRunner:
                 elif parsed.path == "/new":
                     params = parse_qs(parsed.query)
                     new_target = params.get("target", [None])[0]
-                    if new_target and not runner._running:
+                    if new_target:
                         runner._reset()
                         runner.target = new_target
-                        # Reload config, override package name
                         if runner.config_path:
                             runner.config = load_config(runner.config_path)
                         else:
@@ -355,7 +338,8 @@ class LiveRunner:
         print(f"Live dashboard: {url}")
         webbrowser.open(url)
 
-        time.sleep(1)
+        # Wait for browser to connect before starting pipeline
+        time.sleep(2)
         self._start_pipeline_thread()
 
         print("Dashboard running. Press Ctrl+C to stop.")

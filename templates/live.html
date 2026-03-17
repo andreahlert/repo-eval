@@ -589,15 +589,23 @@ function connect() {
 }
 
 function rerun() {
+  // 1. Close old SSE
+  if (evtSource) { evtSource.close(); evtSource = null; }
+  // 2. Reset UI
   resetUI();
-  fetch('/rerun', { method: 'POST' }).then(() => connect());
+  // 3. Connect SSE first so we catch all events
+  connect();
+  // 4. Then trigger the pipeline after a small delay for SSE to establish
+  setTimeout(() => fetch('/rerun', { method: 'POST' }), 300);
 }
 
 function newAnalysis() {
   const pkg = prompt('Package name (e.g. fastapi, pandas, flyte):');
   if (pkg && pkg.trim()) {
+    if (evtSource) { evtSource.close(); evtSource = null; }
     resetUI();
-    fetch('/new?target=' + encodeURIComponent(pkg.trim()), { method: 'POST' }).then(() => connect());
+    connect();
+    setTimeout(() => fetch('/new?target=' + encodeURIComponent(pkg.trim()), { method: 'POST' }), 300);
   }
 }
 
