@@ -36,6 +36,10 @@ from repo_eval.runner import EvalRunner
               help="auto: collect + report. assisted: collect + Claude analysis + report.")
 @click.option("--analyze-only", is_flag=True,
               help="Run Claude analysis on existing findings.json (no collection).")
+@click.option("--live", is_flag=True,
+              help="Open browser with live dashboard showing real-time execution.")
+@click.option("--port", default=8777, type=int,
+              help="Port for live dashboard server (default: 8777).")
 def main(
     target: str,
     config_path: str | None,
@@ -49,6 +53,8 @@ def main(
     rebuild_image: bool,
     mode: str,
     analyze_only: bool,
+    live: bool,
+    port: int,
 ) -> None:
     """Analyze TARGET (package name or repo path) for adoption barriers.
 
@@ -62,6 +68,7 @@ def main(
     \b
     Examples:
       repo-eval flyte                                  # auto mode
+      repo-eval flyte --live                           # real-time browser dashboard
       repo-eval flyte --mode assisted                  # Claude enriches findings
       repo-eval flyte --container --mode assisted      # container + Claude
       repo-eval flyte --analyze-only                   # re-analyze existing findings
@@ -74,6 +81,26 @@ def main(
     output = Path(output_dir).resolve()
     findings_path = output / "findings.json"
     report_path = output / "report.html"
+
+    # Live mode: real-time browser dashboard
+    if live:
+        from repo_eval.live import LiveRunner
+        config = load_config(config_path)
+        if python_version:
+            config.python_version = python_version
+        if config.package_name is None:
+            config.package_name = target
+        step_filter = steps.split(",") if steps else None
+        runner = LiveRunner(
+            target=target,
+            config=config,
+            output_dir=output,
+            port=port,
+            step_filter=step_filter,
+            config_path=config_path,
+        )
+        runner.run()
+        return
 
     # Report-only: just regenerate HTML
     if report_only:

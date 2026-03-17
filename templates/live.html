@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>repo-eval - Live</title>
+<link rel="stylesheet" href="https://unpkg.com/@xterm/xterm@5.5.0/css/xterm.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --accent: #7652a2;
+    --accent-light: #7652a215;
+    --bg: #ffffff;
+    --surface: #f7f7f9;
+    --surface2: #eeeef2;
+    --border: #e0dfe6;
+    --border-light: #ececf0;
+    --text: #2c2b3a;
+    --text-secondary: #55546a;
+    --muted: #8b8a9e;
+    --positive: #1a7f37;
+    --positive-bg: #dafbe1;
+    --positive-border: #aceebb;
+    --negative: #cf222e;
+    --negative-bg: #ffebe9;
+    --negative-border: #ffcecb;
+    --warning: #9a6700;
+    --warning-bg: #fff8c5;
+    --warning-border: #f5e0a0;
+    --terminal-bg: #1e1e2e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  header .logo-mark { flex-shrink: 0; width: 32px; height: 29px; color: var(--accent); }
+
+  header .header-text h1 { font-size: 1.05rem; font-weight: 700; color: var(--text); }
+  header .header-text p { font-size: 0.72rem; color: var(--muted); }
+
+  .header-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .header-actions .meta-tag {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .btn {
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .btn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+
+  .btn.primary:hover { opacity: 0.9; }
+
+  #status-indicator {
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+  }
+
+  #status-indicator.running { color: var(--accent); }
+  #status-indicator.done { color: var(--positive); }
+
+  #score-display {
+    font-size: 1.2rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    display: none;
+  }
+
+  /* ===== LAYOUT ===== */
+  .page { display: flex; min-height: calc(100vh - 56px); }
+
+  .sidebar {
+    width: 190px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+
+  .sidebar h2 {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    padding: 0 1rem;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+  }
+
+  .sidebar .step-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 1rem;
+    text-decoration: none;
+    color: var(--muted);
+    font-size: 0.8rem;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+
+  .sidebar .step-link:hover { background: var(--surface2); }
+  .sidebar .step-link.active { color: var(--text); background: var(--surface2); font-weight: 600; }
+  .sidebar .step-link.pass { color: var(--positive); }
+  .sidebar .step-link.fail { color: var(--negative); }
+  .sidebar .step-link.warning { color: var(--warning); }
+
+  .dot-status {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+
+  .dot-status.running { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+  .dot-status.pass { background: var(--positive); }
+  .dot-status.fail { background: var(--negative); }
+  .dot-status.warning { background: var(--warning); }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  main { flex: 1; min-width: 0; padding: 1.2rem 1.5rem 3rem; overflow-y: auto; }
+
+  /* ===== STEP PANEL ===== */
+  .step-panel {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-header .num {
+    background: var(--accent);
+    color: white;
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+  }
+
+  .panel-header .name { font-size: 0.85rem; font-weight: 600; }
+
+  .panel-header .timer {
+    margin-left: auto;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .panel-header .badge {
+    padding: 0.1em 0.45em;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-family: 'JetBrains Mono', monospace;
+    display: none;
+  }
+
+  .badge.pass { background: var(--positive-bg); color: var(--positive); display: inline-block; }
+  .badge.fail { background: var(--negative-bg); color: var(--negative); display: inline-block; }
+  .badge.warning { background: var(--warning-bg); color: var(--warning); display: inline-block; }
+
+  .panel-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .terminal-pane {
+    background: var(--terminal-bg);
+    min-height: 220px;
+    max-height: 400px;
+    overflow: hidden;
+    padding: 0.3rem;
+  }
+
+  .annotations-pane {
+    padding: 0.8rem 1rem;
+    min-height: 220px;
+    max-height: 400px;
+    overflow-y: auto;
+    border-left: 1px solid var(--border-light);
+  }
+
+  .annotations-pane .placeholder {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-style: italic;
+  }
+
+  /* ===== ANNOTATIONS ===== */
+  .ann {
+    border-radius: 7px;
+    padding: 0.55rem 0.75rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .ann .icon { font-weight: 700; font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+  .ann.positive { background: var(--positive-bg); border: 1px solid var(--positive-border); }
+  .ann.negative { background: var(--negative-bg); border: 1px solid var(--negative-border); }
+  .ann.warning  { background: var(--warning-bg); border: 1px solid var(--warning-border); }
+  .ann.positive .icon { color: var(--positive); }
+  .ann.negative .icon { color: var(--negative); }
+  .ann.warning  .icon { color: var(--warning); }
+  .ann strong { display: block; margin-bottom: 0.1rem; color: var(--text); font-size: 0.82rem; }
+  .ann .detail { color: var(--text-secondary); font-size: 0.78rem; }
+
+  code {
+    background: var(--surface);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    color: #6e44a0;
+  }
+
+  /* ===== INIT ===== */
+  #init-message {
+    text-align: center;
+    padding: 4rem;
+    color: var(--muted);
+  }
+
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto 0.8rem;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 1000px) {
+    .panel-body { grid-template-columns: 1fr; }
+    .annotations-pane { border-left: none; border-top: 1px solid var(--border-light); }
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="logo-mark" width="32" height="29" viewBox="0 0 44 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10.7325 20.4388C11.6982 18.1438 12.1898 15.7827 12.6324 13.4131C13.387 9.37307 13.8972 5.30623 13.7258 1.18364C13.6932 0.40028 13.9138 0.109059 14.7575 0.188746C17.0421 0.404513 19.3074 0.665615 21.3612 1.79067C21.9048 2.0885 22.382 1.9286 22.9017 1.78205C26.8327 0.67369 30.8187 -0.0779745 34.9253 0.00645783C37.6237 0.0619366 40.2407 0.49755 42.7297 1.6147C43.5435 1.97993 43.845 2.49922 43.77 3.36313C43.5683 5.68772 42.639 7.77122 41.6739 9.84286C41.4101 10.4092 41.0266 10.0835 40.7011 9.87791C37.4258 7.80932 33.9086 6.24425 30.286 4.90798C27.7148 3.95952 25.1144 3.09629 22.3025 2.66542C23.1702 3.52404 24.0071 4.41672 24.911 5.23541C28.913 8.86013 33.0836 12.2613 37.9038 14.771C38.4356 15.048 38.5646 15.3318 38.1997 15.85C36.8598 17.7528 35.489 19.6321 33.4785 20.8918C32.8806 21.2665 32.7376 21.7994 32.5894 22.3911C31.4367 26.9944 29.762 31.3745 27.0155 35.2878C25.8812 36.9384 24.4777 38.3869 22.8637 39.5728C22.1292 40.1043 21.4749 40.1669 20.7303 39.6072C18.9337 38.2569 17.5829 36.5179 16.3305 34.6852C15.9864 34.1815 16.2307 33.9058 16.6734 33.678C20.2832 31.8213 23.4905 29.3836 26.5822 26.7839C28.484 25.2109 30.2824 23.5168 31.966 21.7121C31.611 21.3738 31.3066 21.6228 31.0411 21.6936C25.0841 23.2818 19.3462 25.4144 14.0708 28.6582C13.3497 29.1016 12.9663 29.0464 12.6148 28.2355C11.7169 26.1637 10.8845 24.0742 10.7443 21.7951C10.6984 21.0484 10.2419 20.6461 9.78687 20.2039C6.53928 17.048 3.71473 13.5729 1.74933 9.46218C0.789341 7.45433 0.08806 5.37105 0.00218354 3.10907C-0.0318759 2.21194 0.331824 1.71144 1.14182 1.41953C3.02246 0.738513 4.98966 0.32577 6.98543 0.193467C7.7856 0.140088 7.98221 0.421906 7.96127 1.14386C7.81334 6.24361 8.59293 11.2413 9.68012 16.2002C9.99177 17.6216 10.3796 19.0264 10.7325 20.4388ZM21.9306 3.81479C20.6244 10.5823 16.5199 15.6393 11.8931 20.4027C18.2097 17.8236 24.5067 18.9802 30.8619 20.2355C25.9858 15.7476 23.776 9.9179 21.9306 3.81479Z" fill="currentColor"/>
+  </svg>
+  <div class="header-text">
+    <h1 id="title">repo-eval</h1>
+    <p>Live analysis</p>
+  </div>
+  <div class="header-actions">
+    <span id="status-indicator" class="running">connecting...</span>
+    <span id="score-display"></span>
+    <button class="btn" id="btn-rerun" onclick="rerun()" disabled title="Re-run from scratch">&#x21bb; Re-run</button>
+    <button class="btn primary" id="btn-new" onclick="newAnalysis()" title="Analyze a different package">+ New</button>
+  </div>
+</header>
+
+<div class="page">
+  <nav class="sidebar" id="sidebar">
+    <h2>Steps</h2>
+  </nav>
+  <main id="main">
+    <div id="init-message">
+      <div class="spinner"></div>
+      <p>Setting up environment...</p>
+    </div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+<script src="https://unpkg.com/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+<script>
+const terminals = {};
+let evtSource = null;
+let stepTimers = {};
+
+function sevClass(s) { return s === 'pass' ? 'positive' : s === 'fail' ? 'negative' : 'warning'; }
+function sevIcon(s) { return s === 'pass' ? '+' : s === 'fail' ? 'x' : '!'; }
+
+function createStepPanel(stepId, stepName, order) {
+  const link = document.createElement('a');
+  link.className = 'step-link';
+  link.href = '#step-' + stepId;
+  link.innerHTML = '<span class="dot-status" id="dot-' + stepId + '"></span>' + stepName;
+  link.id = 'link-' + stepId;
+  document.getElementById('sidebar').appendChild(link);
+
+  const panel = document.createElement('div');
+  panel.className = 'step-panel';
+  panel.id = 'step-' + stepId;
+  panel.innerHTML =
+    '<div class="panel-header">' +
+      '<span class="num">' + order + '</span>' +
+      '<span class="name">' + stepName + '</span>' +
+      '<span class="timer" id="timer-' + stepId + '"></span>' +
+      '<span class="badge" id="badge-' + stepId + '"></span>' +
+    '</div>' +
+    '<div class="panel-body">' +
+      '<div class="terminal-pane" id="term-' + stepId + '"></div>' +
+      '<div class="annotations-pane" id="ann-' + stepId + '">' +
+        '<span class="placeholder">Waiting...</span>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('main').appendChild(panel);
+
+  const term = new window.Terminal({
+    theme: {
+      background: '#1e1e2e', foreground: '#cdd6f4', cursor: '#f5e0dc',
+      black: '#45475a', red: '#f38ba8', green: '#a6e3a1', yellow: '#f9e2af',
+      blue: '#89b4fa', magenta: '#cba6f7', cyan: '#94e2d5', white: '#bac2de',
+    },
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 13,
+    lineHeight: 1.35,
+    scrollback: 10000,
+    convertEol: true,
+    cursorStyle: 'underline',
+    cursorBlink: false,
+  });
+
+  const fitAddon = new window.FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('term-' + stepId));
+  fitAddon.fit();
+  terminals[stepId] = { term, fitAddon };
+  window.addEventListener('resize', () => fitAddon.fit());
+}
+
+function addAnnotation(stepId, ann) {
+  const pane = document.getElementById('ann-' + stepId);
+  const ph = pane.querySelector('.placeholder');
+  if (ph) ph.remove();
+  const div = document.createElement('div');
+  div.className = 'ann ' + sevClass(ann.severity);
+  div.innerHTML = '<span class="icon">' + sevIcon(ann.severity) + '</span>' +
+    '<div><strong>' + ann.title + '</strong><span class="detail">' + ann.detail + '</span></div>';
+  pane.appendChild(div);
+}
+
+function startTimer(stepId) {
+  const start = Date.now();
+  stepTimers[stepId] = setInterval(() => {
+    const el = document.getElementById('timer-' + stepId);
+    if (el) el.textContent = ((Date.now() - start) / 1000).toFixed(1) + 's';
+  }, 100);
+}
+
+function stopTimer(stepId, duration) {
+  if (stepTimers[stepId]) clearInterval(stepTimers[stepId]);
+  const el = document.getElementById('timer-' + stepId);
+  if (el) el.textContent = duration + 's';
+}
+
+function resetUI() {
+  document.getElementById('main').innerHTML = '<div id="init-message"><div class="spinner"></div><p>Setting up environment...</p></div>';
+  document.getElementById('sidebar').innerHTML = '<h2>Steps</h2>';
+  document.getElementById('title').textContent = 'repo-eval';
+  document.getElementById('status-indicator').textContent = 'connecting...';
+  document.getElementById('status-indicator').className = 'running';
+  document.getElementById('score-display').style.display = 'none';
+  document.getElementById('btn-rerun').disabled = true;
+  Object.keys(terminals).forEach(k => { terminals[k].term.dispose(); delete terminals[k]; });
+  Object.keys(stepTimers).forEach(k => clearInterval(stepTimers[k]));
+}
+
+function connect() {
+  if (evtSource) evtSource.close();
+  evtSource = new EventSource('/events');
+
+  evtSource.onmessage = function(e) {
+    const evt = JSON.parse(e.data);
+    switch (evt.type) {
+      case 'init':
+        const initMsg = document.getElementById('init-message');
+        if (initMsg) initMsg.remove();
+        document.getElementById('title').textContent = evt.package_name + ' ' + (evt.package_version || '');
+        document.getElementById('status-indicator').textContent = 'running...';
+        document.getElementById('status-indicator').className = 'running';
+        if (evt.accent_color) document.documentElement.style.setProperty('--accent', evt.accent_color);
+        evt.steps.forEach((s, i) => createStepPanel(s.id, s.name, i + 1));
+        break;
+
+      case 'step_start': {
+        const dot = document.getElementById('dot-' + evt.step_id);
+        if (dot) dot.className = 'dot-status running';
+        const link = document.getElementById('link-' + evt.step_id);
+        if (link) link.className = 'step-link active';
+        const panel = document.getElementById('step-' + evt.step_id);
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        startTimer(evt.step_id);
+        break;
+      }
+
+      case 'terminal':
+        if (terminals[evt.step_id]) terminals[evt.step_id].term.write(evt.data);
+        break;
+
+      case 'step_done': {
+        stopTimer(evt.step_id, evt.duration);
+        const dot = document.getElementById('dot-' + evt.step_id);
+        if (dot) dot.className = 'dot-status ' + evt.status;
+        const link = document.getElementById('link-' + evt.step_id);
+        if (link) link.className = 'step-link ' + evt.status;
+        const badge = document.getElementById('badge-' + evt.step_id);
+        if (badge) { badge.textContent = evt.status; badge.className = 'badge ' + evt.status; }
+        if (evt.annotations) evt.annotations.forEach(a => addAnnotation(evt.step_id, a));
+        break;
+      }
+
+      case 'done':
+        document.getElementById('status-indicator').textContent = 'complete';
+        document.getElementById('status-indicator').className = 'done';
+        document.getElementById('btn-rerun').disabled = false;
+        if (evt.score != null) {
+          const s = document.getElementById('score-display');
+          s.textContent = evt.score + '/100';
+          s.style.display = 'inline';
+          s.style.color = evt.score >= 70 ? 'var(--positive)' : evt.score >= 40 ? 'var(--warning)' : 'var(--negative)';
+        }
+        break;
+
+      case 'log':
+        document.getElementById('status-indicator').textContent = evt.message;
+        break;
+    }
+  };
+
+  evtSource.onerror = function() {
+    document.getElementById('status-indicator').textContent = 'disconnected';
+    document.getElementById('status-indicator').className = '';
+  };
+}
+
+function rerun() {
+  resetUI();
+  fetch('/rerun', { method: 'POST' }).then(() => connect());
+}
+
+function newAnalysis() {
+  const pkg = prompt('Package name (e.g. fastapi, pandas, flyte):');
+  if (pkg && pkg.trim()) {
+    resetUI();
+    fetch('/new?target=' + encodeURIComponent(pkg.trim()), { method: 'POST' }).then(() => connect());
+  }
+}
+
+connect();
+</script>
+</body>
+</html>
