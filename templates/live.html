@@ -516,7 +516,12 @@ function connect() {
         completedSteps = 0;
         document.getElementById('progress-container').style.display = 'block';
         updateProgress('Preparing...', 0);
-        evt.steps.forEach((s, i) => createStepPanel(s.id, s.name, i + 1));
+        // Only create panels if not already present (handles SSE reconnect replay)
+        evt.steps.forEach((s, i) => {
+          if (!document.getElementById('step-' + s.id)) {
+            createStepPanel(s.id, s.name, i + 1);
+          }
+        });
         break;
       }
 
