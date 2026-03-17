@@ -23,34 +23,17 @@ class ReportGenerator:
     def generate(self, findings: Findings, output_path: Path) -> None:
         template = self.env.get_template("report.html.j2")
 
-        # Load .cast data for each step that has a recording
+        # Load raw .cast content for inline embedding
+        # asciinema-player accepts the raw asciicast v2 string directly
         cast_data = {}
         output_dir = output_path.parent
         for step in findings.steps:
             if step.recording_cast:
                 cast_path = output_dir / step.recording_cast
                 if cast_path.exists():
-                    # Read raw .cast content and parse each line as JSON array
+                    # Escape for embedding in a JS string literal
                     raw = cast_path.read_text().strip()
-                    lines = raw.split("\n")
-                    # First line is header, rest are events
-                    cast_obj = []
-                    header = None
-                    for i, line in enumerate(lines):
-                        parsed = json.loads(line)
-                        if i == 0:
-                            header = parsed
-                        else:
-                            cast_obj.append(parsed)
-
-                    # Build the data structure asciinema-player expects
-                    # It accepts an object with header + events
-                    cast_data[step.step_id] = json.dumps({
-                        "version": header.get("version", 2),
-                        "width": header.get("width", 110),
-                        "height": header.get("height", 30),
-                        "events": cast_obj,
-                    })
+                    cast_data[step.step_id] = json.dumps(raw)
 
         html = template.render(findings=findings, cast_data=cast_data)
         output_path.write_text(html)
