@@ -11,6 +11,7 @@ import time
 import webbrowser
 from datetime import date
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse, parse_qs
@@ -176,6 +177,14 @@ class LiveRunner:
     def _run_pipeline(self) -> None:
         self._running = True
         my_run_id = self._run_id
+        print(f"[pipeline] Run #{my_run_id} waiting for browser...")
+
+        # Wait for at least one SSE client before broadcasting anything
+        for _ in range(100):  # up to 10 seconds
+            if self._clients:
+                break
+            time.sleep(0.1)
+        print(f"[pipeline] Starting run #{my_run_id}, {len(self._clients)} client(s)")
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.recordings_dir.mkdir(exist_ok=True)
@@ -246,7 +255,16 @@ class LiveRunner:
 
     def _start_pipeline_thread(self) -> None:
         self._run_id += 1
-        t = threading.Thread(target=self._run_pipeline, daemon=True)
+        def _safe_run():
+            try:
+                self._run_pipeline()
+            except Exception as e:
+                print(f"[ERROR] Pipeline crashed: {e}")
+                import traceback
+                traceback.print_exc()
+                self._broadcast("done", {"score": 0, "error": str(e)})
+                self._running = False
+        t = threading.Thread(target=_safe_run, daemon=True)
         t.start()
 
     def run(self) -> None:
@@ -328,9 +346,12 @@ class LiveRunner:
                     self.end_headers()
 
             def log_message(self, format, *args):
-                pass
+                pass  # print(f"  [{self.command}] {self.path} -> {args[1] if len(args) > 1 else ''}")
 
-        server = HTTPServer(("127.0.0.1", self.port), Handler)
+        class ThreadedServer(ThreadingMixIn, HTTPServer):
+            daemon_threads = True
+
+        server = ThreadedServer(("127.0.0.1", self.port), Handler)
         server_thread = threading.Thread(target=server.serve_forever, daemon=True)
         server_thread.start()
 
