@@ -7,3 +7,4 @@ build/
 latest-*/
 example-output-*/
 repo-eval-*/
+stderr.log

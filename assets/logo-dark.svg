@@ -1,0 +1,10 @@
+<svg width="800" height="200" viewBox="0 0 800 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="20" y="40" width="120" height="120" rx="24" fill="#6366F1"/>
+  <path d="M52 82h20v4H56v12h14v4H56v16h-4V82z" fill="white"/>
+  <path d="M76 82h4v36h-4V82z" fill="white" opacity="0.6"/>
+  <circle cx="98" cy="100" r="16" stroke="white" stroke-width="3.5" fill="none"/>
+  <path d="M98 90v10l7 4" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="50" y="126" width="60" height="6" rx="3" fill="white" opacity="0.25"/>
+  <rect x="50" y="126" width="36" height="6" rx="3" fill="#34D058"/>
+  <text x="160" y="115" font-family="Inter, system-ui, sans-serif" font-size="56" font-weight="800" fill="#1a1a2e">repo-eval</text>
+</svg>
