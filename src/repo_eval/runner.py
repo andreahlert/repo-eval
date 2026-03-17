@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import platform
 import subprocess
+import sys
 import time
 from datetime import date
 from pathlib import Path
@@ -14,6 +15,10 @@ from repo_eval.models import Findings, ReportConfig, Severity, StepResult
 from repo_eval.recorder import Recorder, RecorderError
 from repo_eval.steps import load_step
 from repo_eval.steps.base import StepContext
+
+
+def _log(msg: str) -> None:
+    print(msg, file=sys.stderr)
 
 
 class EvalRunner:
@@ -39,12 +44,12 @@ class EvalRunner:
         except RecorderError:
             self.recorder = None
             if not skip_recording:
-                print("Warning: asciinema/svg-term not found. Skipping recordings.")
+                _log("Warning: asciinema/svg-term not found. Skipping recordings.")
 
     def _setup_venv(self) -> None:
         if self.venv_path.exists():
             return
-        print(f"Creating venv at {self.venv_path}...")
+        _log(f"Creating venv at {self.venv_path}...")
         subprocess.run(
             ["uv", "venv", str(self.venv_path), "--python", self.config.python_version],
             check=True, capture_output=True, text=True,
@@ -52,7 +57,7 @@ class EvalRunner:
 
     def _install_package(self) -> Optional[str]:
         pkg = self.config.package_name or self.target
-        print(f"Installing {pkg}...")
+        _log(f"Installing {pkg}...")
         is_path = Path(self.target).exists()
 
         if is_path:
@@ -62,7 +67,6 @@ class EvalRunner:
 
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
-        # Also install pip inside venv so scripts can use it
         subprocess.run(
             ["uv", "pip", "install", "pip", "--python", str(self.python_bin)],
             capture_output=True, text=True,
@@ -101,7 +105,7 @@ class EvalRunner:
             enabled_steps = [s for s in enabled_steps if s.id in self.step_filter]
 
         for i, step_config in enumerate(enabled_steps, 1):
-            print(f"\n[{i}/{len(enabled_steps)}] {step_config.name}...")
+            _log(f"\n[{i}/{len(enabled_steps)}] {step_config.name}...")
             result = self._run_step(step_config, i)
             findings.steps.append(result)
 
@@ -136,7 +140,6 @@ class EvalRunner:
         recording_cast = None
         t0 = time.time()
 
-        # Generate script (real commands) and record execution
         try:
             script_path = step.generate_script(ctx)
             if self.recorder and script_path.exists():
@@ -144,9 +147,8 @@ class EvalRunner:
                 self.recorder.record(script_path, cast_path)
                 recording_cast = str(cast_path.relative_to(self.output_dir))
         except Exception as e:
-            print(f"  Recording failed: {e}")
+            _log(f"  Recording failed: {e}")
 
-        # Evaluate (programmatic checks)
         try:
             annotations = step.evaluate(ctx)
         except Exception as e:

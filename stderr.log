@@ -1,0 +1,51 @@
+Resolving flyte...
+  Repo: https://github.com/flyteorg/flyte
+
+============================================================
+  flyte 2.0.7
+  Score: 60/100
+============================================================
+
+  [WARNING] Installation
+    + Clean install
+      `pip install flyte` works without errors.
+    + 55 packages installed
+      Reasonable dependency weight.
+    ! Import time: 0.72s
+      Slow import (>0.5s). Impacts script startup.
+
+  [WARNING] Hello World (README)
+    ! No README found
+      Could not find README.md in the repo or via URL.
+
+  [PASS] CLI Usage
+    + CLI --version works
+      `flyte --version` returns: Flyte SDK version: 2.0.7
+    + CLI --help works
+      `flyte --help` outputs documentation.
+
+  [FAIL] API Introspection
+    + Public API: 18 classes, 31 functions
+      45/49 have docstrings.
+    ! 4 public symbols without docstrings
+      Missing docs: CacheRequest, DeviceClass, SecretRequest, init_in_cluster
+    + 4 docstring examples pass
+      Code examples in docstrings execute without errors.
+    x 11 docstring examples broken
+      `Resources`: FAIL: name 'task' is not defined; `Resources`: FAIL: name 'task' is not defined; `Secre...
+    ! 4 constructors raise errors
+      `AppHandle`: Protocols cannot be instantiated; `CachePolicy`: Protocols cannot be instantiated; `Ima...
+
+  [WARNING] Repo Examples
+    ! No examples/ directory
+      Repository has no examples/ directory with .py files.
+
+  [WARNING] Dependencies & Weight
+    ! 20 direct dependencies
+      Heavy for a Python package. Threshold: 15.
+    ! 2 pinned dependencies
+      Exact pins may cause conflicts: flyteidl2, rich-click
+    + 55 total packages in venv
+      Transitive dependency count. Threshold: 80.
+
+JSON: /tmp/repo-eval-flyte/findings.json
