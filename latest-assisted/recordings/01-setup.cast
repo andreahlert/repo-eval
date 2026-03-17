@@ -1,0 +1,9 @@
+{"version": 2, "width": 110, "height": 40, "timestamp": 1773762638, "env": {"SHELL": null, "TERM": null}}
+[0.003388, "o", "# Step 1: Install flyte\r\n"]
+[0.304452, "o", "$ uv venv .venv --python 3.12\r\nUsing CPython 3.12\r\nCreating virtual environment at: .venv\r\n"]
+[0.605821, "o", "\r\n$ uv pip install flyte\r\n"]
+[0.643018, "o", "  Installed aiofiles>=24.1.0\r\n  Installed click>=8.2.1\r\n  Installed cloudpickle>=3.1.1\r\n  Installed docstring_parser>=0.16\r\n  Installed fsspec>=2025.3.0\r\n  Installed grpcio>=1.71.0\r\n  Installed obstore>=0.7.3\r\n  Installed protobuf>=6.30.1\r\n  Installed pydantic>=2.10.6\r\n  Installed pyyaml>=6.0.2\r\n  Installed rich-click==1.8.9\r\n  Installed httpx<1.0.0,>=0.28.1\r\n  Installed keyring>=25.6.0\r\n  Installed msgpack>=1.1.0\r\n  Installed toml>=0.10.2\r\n  Installed async-lru>=2.0.5\r\n  Installed mashumaro\r\n  Installed aiolimiter>=1.2.1\r\n  Installed flyteidl2==2.0.7\r\n"]
+[0.643032, "o", "  Installed packaging\r\n"]
+[0.64867, "o", "  Installed flyte\r\n"]
+[0.950051, "o", "\r\n$ python -c \"import flyte; print(flyte.__version__)\"\r\n"]
+[1.222335, "o", "2.0.7\r\n"]

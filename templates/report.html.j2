@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{ findings.report.title or (findings.package_name ~ ' - Adoption Barrier Analysis') }}</title>
+<link rel="stylesheet" type="text/css" href="https://unpkg.com/asciinema-player@3.9.0/dist/bundle/asciinema-player.css" />
 <style>
   :root {
     --accent: {{ findings.report.accent_color }};
@@ -76,17 +77,17 @@
     font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.88em;
     color: color-mix(in srgb, var(--accent), #e0d0f0 40%);
   }
-  .recording-container {
-    background: var(--code-bg); border-radius: 12px; overflow: hidden; margin: 1.5rem 0;
+  .player-container {
+    border-radius: 12px; overflow: hidden; margin: 1.5rem 0;
     border: 1px solid var(--accent-light); box-shadow: 0 4px 24px rgba(0,0,0,0.3);
   }
-  .rec-header {
+  .player-container .player-label {
     background: var(--accent-light); padding: 0.5rem 1rem; font-size: 0.8rem;
     color: var(--muted); display: flex; align-items: center; gap: 0.5rem;
   }
   .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
   .dot.red { background: #ff5f58; } .dot.yellow { background: #ffbd2e; } .dot.green { background: #18c132; }
-  .recording-container img { width: 100%; display: block; }
+  .player-container .asciinema-player-wrapper { background: #282d35; }
   .annotation {
     border-radius: 8px; padding: 1rem 1.2rem; margin: 1rem 0; font-size: 0.95rem;
     line-height: 1.6; display: flex; gap: 0.8rem; align-items: flex-start;
@@ -144,7 +145,7 @@
   <img class="logo" src="{{ findings.report.logo_url }}" alt="{{ findings.package_name }} Logo">
   {% endif %}
   <h1>{{ findings.report.title or (findings.package_name ~ ' Analysis') }}</h1>
-  <p>Technical adoption barrier analysis. Automated by repo-eval.</p>
+  <p>Technical adoption barrier analysis.</p>
   <div class="meta">
     <span>{{ findings.package_name }}{% if findings.package_version %} {{ findings.package_version }}{% endif %}</span>
     <span>Python {{ findings.python_version }}</span>
@@ -170,16 +171,16 @@
 <section id="{{ step.step_id }}">
   <h2><span class="step-num">{{ loop.index }}</span> {{ step.step_name }}</h2>
 
-  {% if step.recording_svg %}
-  <div class="recording-container">
-    <div class="rec-header">
+  {% if step.recording_cast and cast_data[step.step_id] is defined %}
+  <div class="player-container">
+    <div class="player-label">
       <span class="dot red"></span>
       <span class="dot yellow"></span>
       <span class="dot green"></span>
       terminal - {{ step.step_name | lower }}
       {% if step.duration_seconds %}<span style="margin-left:auto">{{ step.duration_seconds }}s</span>{% endif %}
     </div>
-    <img src="{{ step.recording_svg }}" alt="{{ step.step_name }} recording">
+    <div id="player-{{ step.step_id }}"></div>
   </div>
   {% endif %}
 
@@ -238,6 +239,30 @@
 <footer>
   repo-eval - {{ findings.date }} - {{ findings.package_name }}{% if findings.package_version %} {{ findings.package_version }}{% endif %}
 </footer>
+
+<script src="https://unpkg.com/asciinema-player@3.9.0/dist/bundle/asciinema-player.min.js"></script>
+<script>
+{% for step in findings.steps %}
+{% if step.recording_cast and cast_data[step.step_id] is defined %}
+(function() {
+  var castData = {{ cast_data[step.step_id] | safe }};
+  AsciinemaPlayer.create(
+    { data: castData },
+    document.getElementById('player-{{ step.step_id }}'),
+    {
+      theme: 'monokai',
+      fit: 'width',
+      autoPlay: false,
+      loop: false,
+      speed: 1.5,
+      idleTimeLimit: 1,
+      rows: 30,
+    }
+  );
+})();
+{% endif %}
+{% endfor %}
+</script>
 
 </body>
 </html>

@@ -1,0 +1,7 @@
+{"version": 2, "width": 110, "height": 40, "timestamp": 1773762646, "env": {"SHELL": null, "TERM": null}}
+[0.002758, "o", "# Step 3: CLI Usage\r\n"]
+[0.503991, "o", "$ flyte --version\r\n"]
+[0.504829, "o", "/output/recordings/cli_test.sh: line 5: flyte: command not found\r\n"]
+[1.006146, "o", "\r\n$ flyte --help\r\n"]
+[1.006875, "o", "/output/recordings/cli_test.sh: line 9: flyte: command not found\r\n"]
+[1.508309, "o", "\r\n"]
