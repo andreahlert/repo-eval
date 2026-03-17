@@ -1,0 +1,126 @@
+"""CLI entry point for repo-eval."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import click
+
+from repo_eval.config import load_config
+from repo_eval.models import Findings
+from repo_eval.report import ReportGenerator
+from repo_eval.runner import EvalRunner
+
+
+@click.command()
+@click.argument("target")
+@click.option("--config", "-c", "config_path", type=click.Path(), default=None,
+              help="Custom checklist YAML config.")
+@click.option("--output", "-o", "output_dir", default=None,
+              help="Output directory. Default: ./repo-eval-<target>/")
+@click.option("--python-version", default=None,
+              help="Python version for test venv. Default from config.")
+@click.option("--skip-recording", is_flag=True,
+              help="Skip asciinema recording (faster, no SVGs).")
+@click.option("--report-only", is_flag=True,
+              help="Regenerate HTML report from existing findings.json.")
+@click.option("--steps", default=None,
+              help="Comma-separated step IDs to run (e.g. setup,deps).")
+@click.option("--container", is_flag=True,
+              help="Run inside an isolated podman/docker container. No local state used.")
+@click.option("--repo-url", default=None,
+              help="Git repo URL to clone inside the container (used with --container).")
+@click.option("--rebuild-image", is_flag=True,
+              help="Force rebuild the container image.")
+def main(
+    target: str,
+    config_path: str | None,
+    output_dir: str | None,
+    python_version: str | None,
+    skip_recording: bool,
+    report_only: bool,
+    steps: str | None,
+    container: bool,
+    repo_url: str | None,
+    rebuild_image: bool,
+) -> None:
+    """Analyze TARGET (package name or repo path) for adoption barriers.
+
+    TARGET can be a PyPI package name (e.g. 'flyte', 'fastapi') or a local path.
+
+    \b
+    Examples:
+      repo-eval flyte                              # analyze from PyPI
+      repo-eval flyte --container                  # inside a clean container
+      repo-eval flyte --container --repo-url https://github.com/flyteorg/flyte-sdk.git
+      repo-eval ./my-project                       # analyze local project
+      repo-eval flyte --steps setup,deps           # run specific steps
+      repo-eval flyte --report-only                # regenerate HTML only
+    """
+    if output_dir is None:
+        safe_name = target.replace("/", "_").replace(".", "_")
+        output_dir = f"./repo-eval-{safe_name}"
+
+    output = Path(output_dir).resolve()
+    findings_path = output / "findings.json"
+    report_path = output / "report.html"
+
+    if report_only:
+        if not findings_path.exists():
+            raise click.ClickException(f"No findings.json at {findings_path}")
+        findings = Findings.load(findings_path)
+        ReportGenerator().generate(findings, report_path)
+        return
+
+    if container:
+        from repo_eval.container import build_image, run_in_container
+
+        if rebuild_image:
+            build_image(force=True)
+
+        run_in_container(
+            target=target,
+            config_path=config_path,
+            output_dir=output_dir,
+            python_version=python_version,
+            skip_recording=skip_recording,
+            steps=steps,
+            repo_url=repo_url,
+        )
+
+        # After container run, regenerate report on host (in case template changed)
+        if findings_path.exists():
+            findings = Findings.load(findings_path)
+            ReportGenerator().generate(findings, report_path)
+            print(f"\nDone. Open: {report_path}")
+        return
+
+    # Local mode
+    config = load_config(config_path)
+
+    if python_version:
+        config.python_version = python_version
+
+    if config.package_name is None:
+        config.package_name = target
+
+    step_filter = steps.split(",") if steps else None
+
+    runner = EvalRunner(
+        target=target,
+        config=config,
+        output_dir=output,
+        skip_recording=skip_recording,
+        step_filter=step_filter,
+    )
+
+    findings = runner.run_all()
+    findings.save(findings_path)
+    print(f"\nFindings saved: {findings_path}")
+
+    ReportGenerator().generate(findings, report_path)
+    print(f"\nDone. Open: {report_path}")
+
+
+if __name__ == "__main__":
+    main()

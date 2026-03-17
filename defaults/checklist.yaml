@@ -1,0 +1,39 @@
+# repo-eval default checklist
+# Override per-package with: repo-eval <pkg> --config my-checklist.yaml
+
+package_name: null  # auto-detected from target
+python_version: "3.12"
+
+steps:
+  - id: setup
+    name: "Installation"
+    module: repo_eval.steps.setup
+    params:
+      max_total_packages: 80
+      max_import_time_ms: 500
+
+  - id: first_contact
+    name: "Hello World (README)"
+    module: repo_eval.steps.first_contact
+    params:
+      readme_url: null  # auto-detect from repo
+
+  - id: cli
+    name: "CLI Usage"
+    module: repo_eval.steps.cli_test
+    params:
+      commands:
+        - "{package} --version"
+        - "{package} --help"
+
+  - id: deps
+    name: "Dependencies & Weight"
+    module: repo_eval.steps.deps
+    params:
+      max_direct_deps: 15
+      max_total_packages: 80
+
+report:
+  title: null  # auto: "<package> Adoption Barrier Analysis"
+  accent_color: "#7652a2"
+  logo_url: null

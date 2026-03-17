@@ -1,0 +1,20 @@
+[project]
+name = "repo-eval"
+version = "0.1.0"
+description = "Analyze Python packages for adoption barriers and generate HTML reports"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1",
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+repo-eval = "repo_eval.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
