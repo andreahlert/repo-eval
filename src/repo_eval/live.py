@@ -71,32 +71,54 @@ class LiveRunner:
         if self.recordings_dir.exists():
             shutil.rmtree(self.recordings_dir, ignore_errors=True)
 
-    def _setup_venv(self) -> None:
-        self._broadcast("log", {"message": "Creating virtual environment..."})
-        subprocess.run(
+    def _run_streamed(self, cmd: list[str], step_id: str = "_setup") -> int:
+        """Run a command and stream its output to the browser."""
+        proc = subprocess.Popen(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+        )
+        for line in iter(proc.stdout.readline, ""):
+            self._broadcast("terminal", {"step_id": step_id, "data": line})
+        proc.wait()
+        return proc.returncode
+
+    def _setup_and_install(self) -> Optional[str]:
+        """Create venv and install package, streaming everything to _setup terminal."""
+        pkg = self.config.package_name or self.target
+
+        self._broadcast("terminal", {"step_id": "_setup", "data": f"$ uv venv .venv --python {self.config.python_version}\n"})
+        self._run_streamed(
             ["uv", "venv", str(self.venv_path), "--python", self.config.python_version],
-            check=True, capture_output=True, text=True,
+            "_setup",
         )
 
-    def _install_package(self) -> Optional[str]:
-        pkg = self.config.package_name or self.target
-        self._broadcast("log", {"message": f"Installing {pkg}..."})
+        self._broadcast("terminal", {"step_id": "_setup", "data": f"\n$ uv pip install {pkg}\n"})
         is_path = Path(self.target).exists()
         if is_path:
             cmd = ["uv", "pip", "install", "-e", self.target, "--python", str(self.python_bin)]
         else:
             cmd = ["uv", "pip", "install", self.target, "--python", str(self.python_bin)]
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        self._run_streamed(cmd, "_setup")
+
+        # Install pip silently
         subprocess.run(
             ["uv", "pip", "install", "pip", "--python", str(self.python_bin)],
             capture_output=True, text=True,
         )
+
+        # Check version
         pkg_import = pkg.replace("-", "_")
+        self._broadcast("terminal", {"step_id": "_setup", "data": f"\n$ python -c \"import {pkg_import}; print({pkg_import}.__version__)\"\n"})
         result = subprocess.run(
             [str(self.python_bin), "-c", f"import {pkg_import}; print({pkg_import}.__version__)"],
             capture_output=True, text=True,
         )
-        return result.stdout.strip() if result.returncode == 0 else None
+        version = result.stdout.strip() if result.returncode == 0 else None
+        if version:
+            self._broadcast("terminal", {"step_id": "_setup", "data": f"{version}\n"})
+        else:
+            self._broadcast("terminal", {"step_id": "_setup", "data": "(no __version__ found)\n"})
+
+        return version
 
     def _run_step_live(self, step_config, order: int) -> StepResult:
         step = load_step(step_config.module)
@@ -174,22 +196,40 @@ class LiveRunner:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.recordings_dir.mkdir(exist_ok=True)
 
-        self._setup_venv()
-        version = self._install_package()
-
         pkg = self.config.package_name or self.target
         enabled_steps = [s for s in self.config.steps if s.enabled]
         if self.step_filter:
             enabled_steps = [s for s in enabled_steps if s.id in self.step_filter]
 
+        # Send init FIRST so the UI renders immediately with setup + all steps
+        all_steps = [{"id": "_setup", "name": "Environment Setup"}] + \
+                    [{"id": s.id, "name": s.name} for s in enabled_steps]
+
         self._broadcast("init", {
             "package_name": pkg,
-            "package_version": version,
+            "package_version": None,
             "python_version": self.config.python_version,
             "accent_color": self.config.accent_color,
             "logo_url": self.config.logo_url,
-            "steps": [{"id": s.id, "name": s.name} for s in enabled_steps],
+            "steps": all_steps,
+            "total_steps": len(all_steps),
         })
+
+        # Setup step: streamed to browser
+        self._broadcast("step_start", {"step_id": "_setup", "step_name": "Environment Setup", "order": 0})
+        t0 = time.time()
+        version = self._setup_and_install()
+        setup_duration = round(time.time() - t0, 2)
+        self._broadcast("step_done", {
+            "step_id": "_setup",
+            "status": "pass" if version else "warning",
+            "duration": setup_duration,
+            "annotations": [{"severity": "pass", "title": f"Installed {pkg} {version or '(unknown)'}", "detail": f"Virtual environment created with Python {self.config.python_version}.", "category": None}],
+        })
+
+        # Update title with version
+        if version:
+            self._broadcast("version", {"package_version": version})
 
         findings = Findings(
             package_name=pkg, package_version=version,

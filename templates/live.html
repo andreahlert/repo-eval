@@ -293,6 +293,38 @@
   }
 
   /* ===== INIT ===== */
+  /* ===== PROGRESS BAR ===== */
+  .progress-bar-container {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0.4rem 2rem;
+    display: none;
+  }
+
+  .progress-bar-container .progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 0.25rem;
+  }
+
+  .progress-track {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
   #init-message {
     text-align: center;
     padding: 4rem;
@@ -335,6 +367,16 @@
   </div>
 </header>
 
+<div class="progress-bar-container" id="progress-container">
+  <div class="progress-info">
+    <span id="progress-label">Preparing...</span>
+    <span id="progress-count">0 / 0</span>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+</div>
+
 <div class="page">
   <nav class="sidebar" id="sidebar">
     <h2>Steps</h2>
@@ -353,6 +395,8 @@
 const terminals = {};
 let evtSource = null;
 let stepTimers = {};
+let totalSteps = 0;
+let completedSteps = 0;
 
 function sevClass(s) { return s === 'pass' ? 'positive' : s === 'fail' ? 'negative' : 'warning'; }
 function sevIcon(s) { return s === 'pass' ? '+' : s === 'fail' ? 'x' : '!'; }
@@ -432,7 +476,17 @@ function stopTimer(stepId, duration) {
   if (el) el.textContent = duration + 's';
 }
 
+function updateProgress(label, completed) {
+  document.getElementById('progress-label').textContent = label;
+  document.getElementById('progress-count').textContent = completed + ' / ' + totalSteps;
+  const pct = totalSteps > 0 ? Math.round((completed / totalSteps) * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
 function resetUI() {
+  totalSteps = 0;
+  completedSteps = 0;
+  document.getElementById('progress-container').style.display = 'none';
   document.getElementById('main').innerHTML = '<div id="init-message"><div class="spinner"></div><p>Setting up environment...</p></div>';
   document.getElementById('sidebar').innerHTML = '<h2>Steps</h2>';
   document.getElementById('title').textContent = 'repo-eval';
@@ -451,15 +505,20 @@ function connect() {
   evtSource.onmessage = function(e) {
     const evt = JSON.parse(e.data);
     switch (evt.type) {
-      case 'init':
+      case 'init': {
         const initMsg = document.getElementById('init-message');
         if (initMsg) initMsg.remove();
-        document.getElementById('title').textContent = evt.package_name + ' ' + (evt.package_version || '');
+        document.getElementById('title').textContent = evt.package_name + (evt.package_version ? ' ' + evt.package_version : '');
         document.getElementById('status-indicator').textContent = 'running...';
         document.getElementById('status-indicator').className = 'running';
         if (evt.accent_color) document.documentElement.style.setProperty('--accent', evt.accent_color);
+        totalSteps = evt.total_steps || evt.steps.length;
+        completedSteps = 0;
+        document.getElementById('progress-container').style.display = 'block';
+        updateProgress('Preparing...', 0);
         evt.steps.forEach((s, i) => createStepPanel(s.id, s.name, i + 1));
         break;
+      }
 
       case 'step_start': {
         const dot = document.getElementById('dot-' + evt.step_id);
@@ -469,6 +528,7 @@ function connect() {
         const panel = document.getElementById('step-' + evt.step_id);
         if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         startTimer(evt.step_id);
+        updateProgress(evt.step_name || evt.step_id, completedSteps);
         break;
       }
 
@@ -478,6 +538,7 @@ function connect() {
 
       case 'step_done': {
         stopTimer(evt.step_id, evt.duration);
+        completedSteps++;
         const dot = document.getElementById('dot-' + evt.step_id);
         if (dot) dot.className = 'dot-status ' + evt.status;
         const link = document.getElementById('link-' + evt.step_id);
@@ -485,8 +546,18 @@ function connect() {
         const badge = document.getElementById('badge-' + evt.step_id);
         if (badge) { badge.textContent = evt.status; badge.className = 'badge ' + evt.status; }
         if (evt.annotations) evt.annotations.forEach(a => addAnnotation(evt.step_id, a));
+        updateProgress(evt.step_id + ' done', completedSteps);
         break;
       }
+
+      case 'version':
+        if (evt.package_version) {
+          const t = document.getElementById('title').textContent;
+          if (!t.includes(evt.package_version)) {
+            document.getElementById('title').textContent = t.trim() + ' ' + evt.package_version;
+          }
+        }
+        break;
 
       case 'done':
         document.getElementById('status-indicator').textContent = 'complete';
