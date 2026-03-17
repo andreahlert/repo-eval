@@ -731,8 +731,10 @@
 
 (function() {
   var raw = "{\"version\": 2, \"width\": 110, \"height\": 40, \"timestamp\": 1773765057, \"env\": {\"SHELL\": null, \"TERM\": null}}\n[0.004031, \"o\", \"# Step 1: Install flyte\\r\\n\"]\n[0.305225, \"o\", \"$ uv venv .venv --python 3.12\\r\\nUsing CPython 3.12\\r\\nCreating virtual environment at: .venv\\r\\n\"]\n[0.606259, \"o\", \"\\r\\n$ uv pip install flyte\\r\\n\"]\n[0.652288, \"o\", \"  Installed aiofiles>=24.1.0\\r\\n  Installed click>=8.2.1\\r\\n  Installed cloudpickle>=3.1.1\\r\\n  Installed docstring_parser>=0.16\\r\\n  Installed fsspec>=2025.3.0\\r\\n  Installed grpcio>=1.71.0\\r\\n  Installed obstore>=0.7.3\\r\\n  Installed protobuf>=6.30.1\\r\\n  Installed pydantic>=2.10.6\\r\\n  Installed pyyaml>=6.0.2\\r\\n  Installed rich-click==1.8.9\\r\\n  Installed httpx<1.0.0,>=0.28.1\\r\\n  Installed keyring>=25.6.0\\r\\n  Installed msgpack>=1.1.0\\r\\n  Installed toml>=0.10.2\\r\\n  Installed async-lru>=2.0.5\\r\\n  Installed mashumaro\\r\\n  Installed aiolimiter>=1.2.1\\r\\n  Installed flyteidl2==2.0.7\\r\\n  Installed packaging\\r\\n\"]\n[0.658544, \"o\", \"  Installed flyte\\r\\n\"]\n[0.959766, \"o\", \"\\r\\n$ python -c \\\"import flyte; print(flyte.__version__)\\\"\\r\\n\"]\n[1.283009, \"o\", \"2.0.7\\r\\n\"]";
+  var blob = new Blob([raw], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
   AsciinemaPlayer.create(
-    raw,
+    url,
     document.getElementById('player-setup'),
     {
       theme: 'monokai',
@@ -750,8 +752,10 @@
 
 (function() {
   var raw = "{\"version\": 2, \"width\": 110, \"height\": 40, \"timestamp\": 1773765061, \"env\": {\"SHELL\": null, \"TERM\": null}}\n[0.002951, \"o\", \"# Step 2: Running the README example as-is\\r\\n\"]\n[0.503959, \"o\", \"--- Code from README ---\\r\\n\"]\n[0.506609, \"o\", \"import asyncio\\r\\nimport flyte\\r\\n\\r\\nenv = flyte.TaskEnvironment(\\r\\n    name=\\\"hello_world\\\",\\r\\n    image=flyte.Image.from_debian_base(python_version=(3, 12)),\\r\\n)\\r\\n\\r\\n@env.task\\r\\ndef calculate(x: int) -> int:\\r\\n    return x * 2 + 5\\r\\n\\r\\n@env.task\\r\\nasync def main(numbers: list[int]) -> float:\\r\\n    results = await asyncio.gather(*[\\r\\n        calculate.aio(num) for num in numbers\\r\\n    ])\\r\\n    return sum(results) / len(results)\\r\\n\\r\\nif __name__ == \\\"__main__\\\":\\r\\n    flyte.init()\\r\\n    run = flyte.run(main, numbers=list(range(10)))\\r\\n    print(f\\\"Result: {run.result}\\\")\"]\n[0.506705, \"o\", \"\\r\\n\"]\n[1.007702, \"o\", \"$ python readme_example.py\\r\\n\"]\n[1.644556, \"o\", \"Filtered traceback (most recent call last):\\r\\n  File \\\"/output/recordings/readme_example.py\\\", line 23, in <module>\\r\\n    print(f\\\"Result: {run.result}\\\")\\r\\n                     ^^^^^^^^^^\\r\\nAttributeError: '_LocalRun' object has no attribute 'result'\\r\\n\\r\\n\"]";
+  var blob = new Blob([raw], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
   AsciinemaPlayer.create(
-    raw,
+    url,
     document.getElementById('player-first_contact'),
     {
       theme: 'monokai',
@@ -769,8 +773,10 @@
 
 (function() {
   var raw = "{\"version\": 2, \"width\": 110, \"height\": 40, \"timestamp\": 1773765065, \"env\": {\"SHELL\": null, \"TERM\": null}}\n[0.002393, \"o\", \"# Step 3: CLI Usage\\r\\n\"]\n[0.5032, \"o\", \"$ flyte --version\\r\\n\"]\n[0.506, \"o\", \"/output/recordings/cli_test.sh: line 5: flyte: command not found\\r\\n\"]\n[1.007191, \"o\", \"\\r\\n$ flyte --help\\r\\n\"]\n[1.00808, \"o\", \"/output/recordings/cli_test.sh: line 9: flyte: command not found\\r\\n\"]\n[1.509207, \"o\", \"\\r\\n\"]";
+  var blob = new Blob([raw], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
   AsciinemaPlayer.create(
-    raw,
+    url,
     document.getElementById('player-cli'),
     {
       theme: 'monokai',
@@ -788,8 +794,10 @@
 
 (function() {
   var raw = "{\"version\": 2, \"width\": 110, \"height\": 40, \"timestamp\": 1773765069, \"env\": {\"SHELL\": null, \"TERM\": null}}\n[0.002895, \"o\", \"# Step: Dependencies & Weight\\r\\n\"]\n[0.50392, \"o\", \"--- Direct dependencies ---\\r\\n\"]\n[0.544878, \"o\", \"Direct: 20\\r\\n  aiofiles>=24.1.0\\r\\n  aiolimiter>=1.2.1\\r\\n  async-lru>=2.0.5\\r\\n  click>=8.2.1\\r\\n  cloudpickle>=3.1.1\\r\\n  docstring_parser>=0.16\\r\\n  flyteidl2==2.0.7\\r\\n  fsspec>=2025.3.0\\r\\n\"]\n[0.544897, \"o\", \"  grpcio>=1.71.0\\r\\n  httpx<1.0.0,>=0.28.1\\r\\n  keyring>=25.6.0\\r\\n  mashumaro\\r\\n  msgpack>=1.1.0\\r\\n  obstore>=0.7.3\\r\\n  packaging\\r\\n  protobuf>=6.30.1\\r\\n  pydantic>=2.10.6\\r\\n  pyyaml>=6.0.2\\r\\n  rich-click==1.8.9\\r\\n  toml>=0.10.2\\r\\n\"]\n[1.052815, \"o\", \"\\r\\n--- Total packages ---\\r\\n\"]\n[1.102706, \"o\", \"Total: 54\\r\\n\"]\n[1.610923, \"o\", \"\\r\\n--- Import time ---\\r\\n\"]\n[1.941538, \"o\", \"Import time: 0.323s\\r\\n\"]";
+  var blob = new Blob([raw], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
   AsciinemaPlayer.create(
-    raw,
+    url,
     document.getElementById('player-deps'),
     {
       theme: 'monokai',

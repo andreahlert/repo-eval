@@ -507,8 +507,10 @@
 {% if step.recording_cast and cast_data[step.step_id] is defined %}
 (function() {
   var raw = {{ cast_data[step.step_id] | safe }};
+  var blob = new Blob([raw], { type: 'text/plain' });
+  var url = URL.createObjectURL(blob);
   AsciinemaPlayer.create(
-    raw,
+    url,
     document.getElementById('player-{{ step.step_id }}'),
     {
       theme: 'monokai',
