@@ -1,9 +1,0 @@
-{"version": 2, "width": 110, "height": 40, "timestamp": 1773762650, "env": {"SHELL": null, "TERM": null}}
-[0.002837, "o", "# Step: Dependencies & Weight\r\n"]
-[0.504016, "o", "--- Direct dependencies ---\r\n"]
-[0.542049, "o", "Direct: 20\r\n  aiofiles>=24.1.0\r\n  aiolimiter>=1.2.1\r\n  async-lru>=2.0.5\r\n  click>=8.2.1\r\n  cloudpickle>=3.1.1\r\n  docstring_parser>=0.16\r\n  flyteidl2==2.0.7\r\n  fsspec>=2025.3.0\r\n  grpcio>=1.71.0\r\n  httpx<1.0.0,>=0.28.1\r\n  keyring>=25.6.0\r\n  mashumaro\r\n  msgpack>=1.1.0\r\n  obstore>=0.7.3\r\n  packaging\r\n  protobuf>=6.30.1"]
-[0.542065, "o", "\r\n  pydantic>=2.10.6\r\n  pyyaml>=6.0.2\r\n  rich-click==1.8.9\r\n  toml>=0.10.2\r\n"]
-[1.049772, "o", "\r\n--- Total packages ---\r\n"]
-[1.086718, "o", "Total: 54\r\n"]
-[1.594295, "o", "\r\n--- Import time ---\r\n"]
-[1.86452, "o", "Import time: 0.260s\r\n"]

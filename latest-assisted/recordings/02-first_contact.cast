@@ -1,8 +1,0 @@
-{"version": 2, "width": 110, "height": 40, "timestamp": 1773762642, "env": {"SHELL": null, "TERM": null}}
-[0.003047, "o", "# Step 2: Running the README example as-is\r\n"]
-[0.504342, "o", "--- Code from README ---\r\n"]
-[0.505233, "o", "import asyncio\r\nimport flyte\r\n\r\nenv = flyte.TaskEnvironment(\r\n    name=\"hello_world\",\r\n    image=flyte.Image.from_debian_base(python_version=(3, 12)),\r\n)\r\n\r\n@env.task\r\ndef calculate(x: int) -> int:\r\n    return x * 2 + 5\r\n\r\n@env.task\r\nasync def main(numbers: list[int]) -> float:\r\n    results = await asyncio.gather(*[\r\n        calculate.aio(num) for num in numbers\r\n    ])\r\n    return sum(results) / len(results)\r\n\r\nif __name__ == \"__main__\":\r\n    flyte.init()\r\n    run = flyte.run(main, numbers=list(range(10)))\r\n    print(f\"Result: {run.result}\")\r\n"]
-[1.006576, "o", "$ python readme_example.py\r\n"]
-[1.526748, "o", "Filtered traceback (most recent call last):\r\n"]
-[1.526763, "o", "  File \"/output/recordings/readme_example.py\", line 23, in <module>\r\n    print(f\"Result: {run.result}\")\r\n                     ^^^^^^^^^^\r\nAttributeError: '_LocalRun' object has no attribute 'result'\r\n"]
-[1.526769, "o", "\r\n"]
