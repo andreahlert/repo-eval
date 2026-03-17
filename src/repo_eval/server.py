@@ -90,16 +90,24 @@ class AppServer:
         except Exception:
             return []
 
+    @staticmethod
+    def _parse_github_url(url: str) -> tuple[str, str] | None:
+        """Extract (owner, repo) from a GitHub URL."""
+        url = url.rstrip("/").replace(".git", "")
+        # https://github.com/owner/repo or github.com/owner/repo
+        parts = url.split("/")
+        for i, part in enumerate(parts):
+            if part in ("github.com", "www.github.com") and i + 2 < len(parts):
+                return parts[i + 1], parts[i + 2]
+        return None
+
     def _fetch_repo_meta(self, repo_url: str) -> dict:
         """Fetch repo metadata from GitHub API."""
         import urllib.request
-        # Extract owner/repo from URL
-        parts = repo_url.rstrip("/").split("/")
-        if len(parts) >= 2:
-            owner, repo = parts[-2], parts[-1]
-            repo = repo.replace(".git", "")
-        else:
+        parsed = self._parse_github_url(repo_url)
+        if not parsed:
             return {}
+        owner, repo = parsed
         try:
             api_url = f"https://api.github.com/repos/{owner}/{repo}"
             req = urllib.request.Request(api_url, headers={"Accept": "application/vnd.github.v3+json"})
@@ -116,6 +124,37 @@ class AppServer:
                 }
         except Exception:
             return {}
+
+    def _resolve_pypi_name_from_repo(self, repo_url: str) -> str | None:
+        """Read pyproject.toml from GitHub repo to find the real PyPI package name."""
+        import urllib.request
+        parsed = self._parse_github_url(repo_url)
+        if not parsed:
+            return None
+        owner, repo = parsed
+        # Try common locations for pyproject.toml
+        for path in ("pyproject.toml", "src/pyproject.toml"):
+            try:
+                raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/{path}"
+                req = urllib.request.Request(raw_url)
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    content = r.read().decode()
+                    # Parse [project] name = "xxx"
+                    import re
+                    match = re.search(r'^\s*name\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
+                    if match:
+                        return match.group(1)
+            except Exception:
+                continue
+        return None
+
+    def _resolve_readme_url(self, repo_url: str) -> str | None:
+        """Build raw README URL from GitHub repo."""
+        parsed = self._parse_github_url(repo_url)
+        if not parsed:
+            return None
+        owner, repo = parsed
+        return f"https://raw.githubusercontent.com/{owner}/{repo}/main/README.md"
 
     # ===== Container management =====
 
@@ -171,7 +210,7 @@ class AppServer:
 
     # ===== Pipeline =====
 
-    def _run_pipeline(self, target: str, mode: str, config_path: str | None) -> None:
+    def _run_pipeline(self, target: str, mode: str, config_path: str | None, readme_url: str | None = None) -> None:
         self._running = True
         my_run_id = self._run_id
 
@@ -240,6 +279,9 @@ class AppServer:
             repo_url = pypi_info[0].get("repo_url", "")
         if repo_url and "github.com" in repo_url:
             repo_meta = self._fetch_repo_meta(repo_url)
+            # Auto-resolve readme_url if not provided
+            if not readme_url:
+                readme_url = self._resolve_readme_url(repo_url)
 
         self._broadcast("build_log", {"message": "Ready.", "pct": 100})
         time.sleep(0.3)
@@ -252,6 +294,12 @@ class AppServer:
         # Phase 2: Dashboard
         config = load_config(config_path) if config_path else load_config()
         config.package_name = target
+
+        # Inject readme_url into first_contact step params
+        if readme_url:
+            for sc in config.steps:
+                if sc.id == "first_contact":
+                    sc.params["readme_url"] = readme_url
 
         enabled_steps = [s for s in config.steps if s.enabled]
         all_steps = [{"id": "_setup", "name": "Environment Setup"}] + \
@@ -373,11 +421,11 @@ class AppServer:
             status=status, annotations=annotations, duration_seconds=round(duration, 2),
         )
 
-    def _start_run(self, target: str, mode: str, config_path: str | None = None) -> None:
+    def _start_run(self, target: str, mode: str, config_path: str | None = None, readme_url: str | None = None) -> None:
         self._run_id += 1
         def _safe():
             try:
-                self._run_pipeline(target, mode, config_path)
+                self._run_pipeline(target, mode, config_path, readme_url=readme_url)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -429,20 +477,53 @@ class AppServer:
                 elif parsed.path == "/search":
                     params = parse_qs(parsed.query)
                     q = params.get("q", [""])[0]
-                    results = server_ref._search_pypi(q)
-                    # Also try fetching repo meta if it looks like a github URL
+                    results = []
+
                     if "github.com" in q:
+                        # Input is a GitHub URL: resolve to PyPI package name
                         meta = server_ref._fetch_repo_meta(q)
-                        if meta:
-                            results.append({
-                                "name": meta.get("name", ""),
+                        pypi_name = server_ref._resolve_pypi_name_from_repo(q)
+                        readme_url = server_ref._resolve_readme_url(q)
+
+                        if pypi_name:
+                            # Found package name in pyproject.toml, verify on PyPI
+                            pypi_results = server_ref._search_pypi(pypi_name)
+                            if pypi_results:
+                                r = pypi_results[0]
+                                r["repo_url"] = meta.get("html_url", q)
+                                r["avatar_url"] = meta.get("avatar_url", "")
+                                r["stars"] = meta.get("stars", 0)
+                                r["readme_url"] = readme_url
+                                results = [r]
+                            else:
+                                # Package exists in repo but not on PyPI
+                                results = [{
+                                    "name": pypi_name,
+                                    "version": None,
+                                    "summary": meta.get("description", ""),
+                                    "repo_url": meta.get("html_url", q),
+                                    "pypi_url": "",
+                                    "avatar_url": meta.get("avatar_url", ""),
+                                    "stars": meta.get("stars", 0),
+                                    "readme_url": readme_url,
+                                }]
+                        elif meta:
+                            # Could not read pyproject.toml, show repo name
+                            results = [{
+                                "name": meta.get("name", q.split("/")[-1]),
                                 "version": None,
                                 "summary": meta.get("description", ""),
                                 "repo_url": meta.get("html_url", q),
                                 "pypi_url": "",
                                 "avatar_url": meta.get("avatar_url", ""),
                                 "stars": meta.get("stars", 0),
-                            })
+                                "readme_url": readme_url,
+                                "note": "Could not resolve PyPI name. The repo name may differ from the package name.",
+                            }]
+                    else:
+                        # Input is a package name: search PyPI directly
+                        results = server_ref._search_pypi(q)
+
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -461,8 +542,9 @@ class AppServer:
                     target = body.get("target", "")
                     mode = body.get("mode", "auto")
                     cfg = body.get("config_path", config_path)
+                    readme_url = body.get("readme_url")
                     if target:
-                        server_ref._start_run(target, mode, cfg)
+                        server_ref._start_run(target, mode, cfg, readme_url=readme_url)
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()
@@ -474,8 +556,9 @@ class AppServer:
                     target = body.get("target", initial_target or "")
                     mode = body.get("mode", "auto")
                     cfg = body.get("config_path", config_path)
+                    readme_url = body.get("readme_url")
                     if target:
-                        server_ref._start_run(target, mode, cfg)
+                        server_ref._start_run(target, mode, cfg, readme_url=readme_url)
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.end_headers()

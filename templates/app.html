@@ -333,6 +333,7 @@
 let evtSource = null;
 let selectedTarget = null;
 let selectedMode = 'auto';
+let selectedReadmeUrl = null;
 let terminals = {};
 let stepTimers = {};
 let totalSteps = 0;
@@ -367,7 +368,7 @@ function doSearch() {
           (r.version ? '<span class="pkg-version">' + r.version + '</span>' : '') +
           (r.summary ? '<div class="pkg-summary">' + r.summary + '</div>' : '') +
           (r.repo_url ? '<div class="pkg-repo">' + r.repo_url + '</div>' : '');
-        card.onclick = () => selectPackage(r);
+        card.onclick = function() { selectPackage(r, this); };
         container.appendChild(card);
       });
     });
@@ -377,10 +378,11 @@ document.getElementById('search-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') doSearch();
 });
 
-function selectPackage(pkg) {
+function selectPackage(pkg, el) {
   selectedTarget = pkg.name;
+  selectedReadmeUrl = pkg.readme_url || null;
   document.querySelectorAll('.result-card').forEach(c => c.style.borderColor = 'var(--border)');
-  event.currentTarget.style.borderColor = 'var(--accent)';
+  el.style.borderColor = 'var(--accent)';
   document.getElementById('mode-toggle').style.display = 'flex';
   document.getElementById('start-btn').style.display = 'inline-block';
 }
@@ -398,7 +400,7 @@ function startAnalysis() {
     fetch('/start', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({target: selectedTarget, mode: selectedMode}),
+      body: JSON.stringify({target: selectedTarget, mode: selectedMode, readme_url: selectedReadmeUrl}),
     });
   }, 500);
 }
@@ -621,7 +623,7 @@ function doRerun() {
     fetch('/rerun', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({target: selectedTarget, mode: selectedMode}),
+      body: JSON.stringify({target: selectedTarget, mode: selectedMode, readme_url: selectedReadmeUrl}),
     });
   }, 500);
 }
