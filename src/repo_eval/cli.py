@@ -32,6 +32,10 @@ from repo_eval.runner import EvalRunner
               help="Git repo URL to clone inside the container (used with --container).")
 @click.option("--rebuild-image", is_flag=True,
               help="Force rebuild the container image.")
+@click.option("--mode", type=click.Choice(["auto", "assisted"]), default="auto",
+              help="auto: collect + report. assisted: collect + Claude analysis + report.")
+@click.option("--analyze-only", is_flag=True,
+              help="Run Claude analysis on existing findings.json (no collection).")
 def main(
     target: str,
     config_path: str | None,
@@ -43,19 +47,25 @@ def main(
     container: bool,
     repo_url: str | None,
     rebuild_image: bool,
+    mode: str,
+    analyze_only: bool,
 ) -> None:
     """Analyze TARGET (package name or repo path) for adoption barriers.
 
     TARGET can be a PyPI package name (e.g. 'flyte', 'fastapi') or a local path.
 
     \b
+    Modes:
+      auto      Collect evidence + generate report (default)
+      assisted  Collect evidence + Claude analysis + generate report
+
+    \b
     Examples:
-      repo-eval flyte                              # analyze from PyPI
-      repo-eval flyte --container                  # inside a clean container
-      repo-eval flyte --container --repo-url https://github.com/flyteorg/flyte-sdk.git
-      repo-eval ./my-project                       # analyze local project
-      repo-eval flyte --steps setup,deps           # run specific steps
-      repo-eval flyte --report-only                # regenerate HTML only
+      repo-eval flyte                                  # auto mode
+      repo-eval flyte --mode assisted                  # Claude enriches findings
+      repo-eval flyte --container --mode assisted      # container + Claude
+      repo-eval flyte --analyze-only                   # re-analyze existing findings
+      repo-eval flyte --report-only                    # regenerate HTML only
     """
     if output_dir is None:
         safe_name = target.replace("/", "_").replace(".", "_")
@@ -65,6 +75,7 @@ def main(
     findings_path = output / "findings.json"
     report_path = output / "report.html"
 
+    # Report-only: just regenerate HTML
     if report_only:
         if not findings_path.exists():
             raise click.ClickException(f"No findings.json at {findings_path}")
@@ -72,6 +83,19 @@ def main(
         ReportGenerator().generate(findings, report_path)
         return
 
+    # Analyze-only: run Claude on existing findings
+    if analyze_only:
+        if not findings_path.exists():
+            raise click.ClickException(f"No findings.json at {findings_path}")
+        from repo_eval.analyze import run_claude_analysis
+        findings = run_claude_analysis(findings_path, output)
+        findings.save(findings_path)
+        print(f"Enriched findings saved: {findings_path}")
+        ReportGenerator().generate(findings, report_path)
+        print(f"Done. Open: {report_path}")
+        return
+
+    # Container mode: delegate to podman
     if container:
         from repo_eval.container import build_image, run_in_container
 
@@ -88,14 +112,20 @@ def main(
             repo_url=repo_url,
         )
 
-        # After container run, regenerate report on host (in case template changed)
+        # After container, optionally run Claude analysis on host
+        if mode == "assisted" and findings_path.exists():
+            from repo_eval.analyze import run_claude_analysis
+            findings = run_claude_analysis(findings_path, output)
+            findings.save(findings_path)
+            print(f"Enriched findings saved: {findings_path}")
+
         if findings_path.exists():
             findings = Findings.load(findings_path)
             ReportGenerator().generate(findings, report_path)
             print(f"\nDone. Open: {report_path}")
         return
 
-    # Local mode
+    # Local mode: collect
     config = load_config(config_path)
 
     if python_version:
@@ -117,6 +147,13 @@ def main(
     findings = runner.run_all()
     findings.save(findings_path)
     print(f"\nFindings saved: {findings_path}")
+
+    # Assisted mode: enrich with Claude
+    if mode == "assisted":
+        from repo_eval.analyze import run_claude_analysis
+        findings = run_claude_analysis(findings_path, output)
+        findings.save(findings_path)
+        print(f"Enriched findings saved: {findings_path}")
 
     ReportGenerator().generate(findings, report_path)
     print(f"\nDone. Open: {report_path}")
