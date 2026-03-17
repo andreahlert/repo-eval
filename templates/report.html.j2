@@ -6,198 +6,472 @@
 <title>{{ findings.report.title or (findings.package_name ~ ' - Adoption Barrier Analysis') }}</title>
 <link rel="stylesheet" type="text/css" href="https://unpkg.com/asciinema-player@3.9.0/dist/bundle/asciinema-player.css" />
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
   :root {
     --accent: {{ findings.report.accent_color }};
-    --accent-light: {{ findings.report.accent_color }}33;
-    --dark: #1a1a2e;
-    --darker: #12121f;
+    --accent-light: {{ findings.report.accent_color }}22;
+    --accent-mid: {{ findings.report.accent_color }}44;
+    --dark: #16151e;
+    --darker: #0e0d14;
+    --surface: #1c1b26;
+    --surface2: #232230;
+    --border: #2a293a;
     --light: #dedde4;
-    --text: #e8e6f0;
-    --muted: #9b97b0;
-    --positive: #18c132;
-    --negative: #ff5f58;
-    --warning: #ffbd2e;
-    --code-bg: #1e1e30;
+    --text: #c8c5d6;
+    --text-bright: #eae8f2;
+    --muted: #7a7790;
+    --positive: #34d058;
+    --negative: #f85149;
+    --warning: #d29922;
+    --code-bg: #1a1924;
   }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background: var(--darker);
     color: var(--text);
-    line-height: 1.7;
+    line-height: 1.6;
+    font-size: 13px;
   }
+
+  /* ===== HEADER ===== */
   header {
-    background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent), #4d65ff 50%) 100%);
-    padding: 3rem 2rem;
-    text-align: center;
-    position: relative;
+    background: var(--dark);
+    border-bottom: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  header .logo-mark {
+    flex-shrink: 0;
+    width: 44px;
+    height: 40px;
+    color: var(--accent);
+  }
+
+  header .header-text h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: -0.02em;
+  }
+
+  header .header-text p {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.15rem;
+  }
+
+  .meta-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .meta-bar span {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ===== LAYOUT ===== */
+  .page {
+    display: flex;
+    min-height: calc(100vh - 80px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--dark);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar h2 {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    padding: 0 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .sidebar a {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 1rem;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.75rem;
+    transition: background 0.15s;
+  }
+
+  .sidebar a:hover { background: var(--surface); }
+
+  .sidebar .status-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .sidebar .status-dot.pass { background: var(--positive); }
+  .sidebar .status-dot.fail { background: var(--negative); }
+  .sidebar .status-dot.warning { background: var(--warning); }
+
+  /* Main content */
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 1.5rem 2rem 4rem;
+  }
+
+  /* ===== STEP SECTION (two columns) ===== */
+  section.step {
+    margin-bottom: 2.5rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--dark);
     overflow: hidden;
   }
-  header::before {
-    content: '';
-    position: absolute;
-    top: -50%; left: -50%; width: 200%; height: 200%;
-    background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.08) 0%, transparent 50%);
-    pointer-events: none;
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
   }
-  header img.logo {
-    width: 72px; height: 72px; border-radius: 16px; margin-bottom: 1rem;
-    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
+
+  .step-header .step-num {
+    background: var(--accent);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    width: 20px; height: 20px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
-  header h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
-  header p { font-size: 1.1rem; opacity: 0.9; max-width: 600px; margin: 0 auto; }
-  .meta {
-    margin-top: 1.5rem; display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;
-    font-size: 0.85rem; opacity: 0.8;
+
+  .step-header h2 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-bright);
   }
-  .meta span { background: rgba(255,255,255,0.15); padding: 0.3rem 0.8rem; border-radius: 20px; }
-  main { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
-  .toc {
-    background: var(--dark); border: 1px solid var(--accent-light); border-radius: 12px;
-    padding: 1.5rem 2rem; margin-bottom: 3rem;
+
+  .step-header .step-badge {
+    margin-left: auto;
   }
-  .toc h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 1rem; }
-  .toc ol { padding-left: 1.2rem; }
-  .toc li { margin-bottom: 0.4rem; }
-  .toc a { color: color-mix(in srgb, var(--accent), #8ea4ff 60%); text-decoration: none; }
-  .toc a:hover { text-decoration: underline; }
-  section { margin-bottom: 3rem; }
-  h2 {
-    font-size: 1.6rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: 0.5rem;
-    border-bottom: 2px solid var(--accent); display: flex; align-items: center; gap: 0.5rem;
+
+  .step-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 200px;
   }
-  h2 .step-num {
-    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent), #4d65ff 50%));
-    color: white; font-size: 0.85rem; width: 28px; height: 28px; border-radius: 50%;
-    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+
+  .step-body.no-recording {
+    grid-template-columns: 1fr;
   }
-  p { margin-bottom: 1rem; }
+
+  /* Left: annotations */
+  .step-annotations {
+    padding: 1rem;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .step-body.no-recording .step-annotations {
+    border-right: none;
+  }
+
+  /* Right: recording */
+  .step-recording {
+    background: var(--code-bg);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .step-recording .rec-label {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.65rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .dot.r { background: #ff5f58; } .dot.y { background: #ffbd2e; } .dot.g { background: #18c132; }
+
+  .step-recording .asciinema-player-wrapper {
+    flex: 1;
+  }
+
+  /* ===== ANNOTATIONS ===== */
+  .ann {
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .ann .icon {
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .ann.positive { background: rgba(52,208,88,0.06); border: 1px solid rgba(52,208,88,0.18); }
+  .ann.negative { background: rgba(248,81,73,0.06); border: 1px solid rgba(248,81,73,0.18); }
+  .ann.warning  { background: rgba(210,153,34,0.06); border: 1px solid rgba(210,153,34,0.18); }
+  .ann.positive .icon { color: var(--positive); }
+  .ann.negative .icon { color: var(--negative); }
+  .ann.warning  .icon { color: var(--warning); }
+
+  .ann strong {
+    color: var(--text-bright);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.15rem;
+    font-size: 0.8rem;
+  }
+
+  .ann .detail { color: var(--text); }
+
   code {
-    background: var(--code-bg); padding: 0.15em 0.4em; border-radius: 4px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.88em;
-    color: color-mix(in srgb, var(--accent), #e0d0f0 40%);
+    background: var(--code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    color: #c9b4e2;
+    border: 1px solid var(--border);
   }
-  .player-container {
-    border-radius: 12px; overflow: hidden; margin: 1.5rem 0;
-    border: 1px solid var(--accent-light); box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+
+  /* ===== SUMMARY ===== */
+  section.summary-section {
+    margin-bottom: 2rem;
   }
-  .player-container .player-label {
-    background: var(--accent-light); padding: 0.5rem 1rem; font-size: 0.8rem;
-    color: var(--muted); display: flex; align-items: center; gap: 0.5rem;
+
+  section.summary-section h2 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
   }
-  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-  .dot.red { background: #ff5f58; } .dot.yellow { background: #ffbd2e; } .dot.green { background: #18c132; }
-  .player-container .asciinema-player-wrapper { background: #282d35; }
-  .annotation {
-    border-radius: 8px; padding: 1rem 1.2rem; margin: 1rem 0; font-size: 0.95rem;
-    line-height: 1.6; display: flex; gap: 0.8rem; align-items: flex-start;
+
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
   }
-  .annotation .icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 0.1rem; font-weight: bold; }
-  .annotation.positive { background: rgba(24,193,50,0.08); border: 1px solid rgba(24,193,50,0.25); }
-  .annotation.negative { background: rgba(255,95,88,0.08); border: 1px solid rgba(255,95,88,0.25); }
-  .annotation.warning { background: rgba(255,189,46,0.08); border: 1px solid rgba(255,189,46,0.25); }
-  .annotation.positive .icon { color: var(--positive); }
-  .annotation.negative .icon { color: var(--negative); }
-  .annotation.warning .icon { color: var(--warning); }
-  .summary-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.92rem; }
+
   .summary-table th {
-    background: var(--accent-light); padding: 0.8rem 1rem; text-align: left;
-    font-weight: 600; border-bottom: 2px solid var(--accent);
+    background: var(--surface);
+    padding: 0.5rem 0.8rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border);
   }
-  .summary-table td { padding: 0.7rem 1rem; border-bottom: 1px solid rgba(118,82,162,0.1); vertical-align: top; }
-  .summary-table tr:hover td { background: rgba(118,82,162,0.05); }
+
+  .summary-table td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .summary-table tr:hover td { background: var(--surface); }
+
   .badge {
-    display: inline-block; padding: 0.15em 0.6em; border-radius: 12px;
-    font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+    display: inline-block;
+    padding: 0.1em 0.5em;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: 'JetBrains Mono', monospace;
   }
-  .badge.pass { background: rgba(24,193,50,0.2); color: #18c132; }
-  .badge.warning { background: rgba(255,189,46,0.2); color: #ffbd2e; }
-  .badge.fail { background: rgba(255,95,88,0.2); color: #ff5f58; }
-  .badge.bug { background: rgba(255,95,88,0.2); color: #ff5f58; }
-  .badge.ux { background: rgba(255,189,46,0.2); color: #ffbd2e; }
-  .badge.design { background: rgba(77,101,255,0.2); color: #8ea4ff; }
-  .badge.docs { background: rgba(118,82,162,0.2); color: #c9b4e2; }
+
+  .badge.pass { background: rgba(52,208,88,0.12); color: var(--positive); }
+  .badge.warning { background: rgba(210,153,34,0.12); color: var(--warning); }
+  .badge.fail { background: rgba(248,81,73,0.12); color: var(--negative); }
+  .badge.bug { background: rgba(248,81,73,0.12); color: var(--negative); }
+  .badge.ux { background: rgba(210,153,34,0.12); color: var(--warning); }
+  .badge.design { background: rgba(77,101,255,0.12); color: #8ea4ff; }
+  .badge.docs { background: var(--accent-light); color: var(--accent); }
+
+  /* ===== VERDICT ===== */
   .verdict {
-    background: linear-gradient(135deg, var(--accent-light), rgba(77,101,255,0.1));
-    border: 1px solid rgba(118,82,162,0.3); border-radius: 12px; padding: 2rem; margin-top: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
   }
-  .verdict h2 { border: none; padding-bottom: 0; }
-  .score-bar { height: 8px; background: var(--code-bg); border-radius: 4px; margin: 1rem 0; overflow: hidden; }
+
+  .verdict h2 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 1rem;
+  }
+
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .score-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--code-bg);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
   .score-bar .fill {
-    height: 100%; border-radius: 4px;
+    height: 100%;
+    border-radius: 3px;
     background: linear-gradient(90deg, var(--negative), var(--warning), var(--positive));
   }
-  footer {
-    text-align: center; padding: 2rem; color: var(--muted); font-size: 0.82rem;
-    border-top: 1px solid var(--accent-light);
+
+  .score-num {
+    font-size: 1.4rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 60px;
+    text-align: right;
   }
-  @media (max-width: 700px) {
-    header h1 { font-size: 1.6rem; }
+
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--muted);
+    font-size: 0.65rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 1100px) {
+    .step-body { grid-template-columns: 1fr; }
+    .step-annotations { border-right: none; border-bottom: 1px solid var(--border); }
+    .sidebar { display: none; }
+    header { padding: 1.5rem; }
     main { padding: 1rem; }
-    .meta { flex-direction: column; align-items: center; }
+  }
+
+  @media (max-width: 600px) {
+    header { flex-direction: column; align-items: flex-start; }
+    .meta-bar { margin-left: 0; flex-wrap: wrap; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  {% if findings.report.logo_url %}
-  <img class="logo" src="{{ findings.report.logo_url }}" alt="{{ findings.package_name }} Logo">
-  {% endif %}
-  <h1>{{ findings.report.title or (findings.package_name ~ ' Analysis') }}</h1>
-  <p>Technical adoption barrier analysis.</p>
-  <div class="meta">
+  <svg class="logo-mark" width="44" height="40" viewBox="0 0 44 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10.7325 20.4388C11.6982 18.1438 12.1898 15.7827 12.6324 13.4131C13.387 9.37307 13.8972 5.30623 13.7258 1.18364C13.6932 0.40028 13.9138 0.109059 14.7575 0.188746C17.0421 0.404513 19.3074 0.665615 21.3612 1.79067C21.9048 2.0885 22.382 1.9286 22.9017 1.78205C26.8327 0.67369 30.8187 -0.0779745 34.9253 0.00645783C37.6237 0.0619366 40.2407 0.49755 42.7297 1.6147C43.5435 1.97993 43.845 2.49922 43.77 3.36313C43.5683 5.68772 42.639 7.77122 41.6739 9.84286C41.4101 10.4092 41.0266 10.0835 40.7011 9.87791C37.4258 7.80932 33.9086 6.24425 30.286 4.90798C27.7148 3.95952 25.1144 3.09629 22.3025 2.66542C23.1702 3.52404 24.0071 4.41672 24.911 5.23541C28.913 8.86013 33.0836 12.2613 37.9038 14.771C38.4356 15.048 38.5646 15.3318 38.1997 15.85C36.8598 17.7528 35.489 19.6321 33.4785 20.8918C32.8806 21.2665 32.7376 21.7994 32.5894 22.3911C31.4367 26.9944 29.762 31.3745 27.0155 35.2878C25.8812 36.9384 24.4777 38.3869 22.8637 39.5728C22.1292 40.1043 21.4749 40.1669 20.7303 39.6072C18.9337 38.2569 17.5829 36.5179 16.3305 34.6852C15.9864 34.1815 16.2307 33.9058 16.6734 33.678C20.2832 31.8213 23.4905 29.3836 26.5822 26.7839C28.484 25.2109 30.2824 23.5168 31.966 21.7121C31.611 21.3738 31.3066 21.6228 31.0411 21.6936C25.0841 23.2818 19.3462 25.4144 14.0708 28.6582C13.3497 29.1016 12.9663 29.0464 12.6148 28.2355C11.7169 26.1637 10.8845 24.0742 10.7443 21.7951C10.6984 21.0484 10.2419 20.6461 9.78687 20.2039C6.53928 17.048 3.71473 13.5729 1.74933 9.46218C0.789341 7.45433 0.08806 5.37105 0.00218354 3.10907C-0.0318759 2.21194 0.331824 1.71144 1.14182 1.41953C3.02246 0.738513 4.98966 0.32577 6.98543 0.193467C7.7856 0.140088 7.98221 0.421906 7.96127 1.14386C7.81334 6.24361 8.59293 11.2413 9.68012 16.2002C9.99177 17.6216 10.3796 19.0264 10.7325 20.4388ZM21.9306 3.81479C20.6244 10.5823 16.5199 15.6393 11.8931 20.4027C18.2097 17.8236 24.5067 18.9802 30.8619 20.2355C25.9858 15.7476 23.776 9.9179 21.9306 3.81479Z" fill="currentColor"/>
+  </svg>
+  <div class="header-text">
+    <h1>{{ findings.report.title or (findings.package_name ~ ' Analysis') }}</h1>
+    <p>Adoption barrier analysis</p>
+  </div>
+  <div class="meta-bar">
     <span>{{ findings.package_name }}{% if findings.package_version %} {{ findings.package_version }}{% endif %}</span>
-    <span>Python {{ findings.python_version }}</span>
+    <span>py{{ findings.python_version }}</span>
     <span>{{ findings.platform }}</span>
     <span>{{ findings.date }}</span>
   </div>
 </header>
 
-<main>
+<div class="page">
 
-<nav class="toc">
-  <h2>Contents</h2>
-  <ol>
-    {% for step in findings.steps %}
-    <li><a href="#{{ step.step_id }}">{{ step.step_name }}</a></li>
-    {% endfor %}
-    <li><a href="#summary">Summary Table</a></li>
-    <li><a href="#verdict">Verdict</a></li>
-  </ol>
+<nav class="sidebar">
+  <h2>Steps</h2>
+  {% for step in findings.steps %}
+  <a href="#{{ step.step_id }}">
+    <span class="status-dot {{ step.status.value }}"></span>
+    {{ step.step_name }}
+  </a>
+  {% endfor %}
+  <a href="#summary" style="margin-top:0.5rem; border-top:1px solid var(--border); padding-top:0.5rem;">Summary</a>
+  <a href="#verdict">Verdict</a>
 </nav>
 
+<main>
+
 {% for step in findings.steps %}
-<section id="{{ step.step_id }}">
-  <h2><span class="step-num">{{ loop.index }}</span> {{ step.step_name }}</h2>
-
-  {% if step.recording_cast and cast_data[step.step_id] is defined %}
-  <div class="player-container">
-    <div class="player-label">
-      <span class="dot red"></span>
-      <span class="dot yellow"></span>
-      <span class="dot green"></span>
-      terminal - {{ step.step_name | lower }}
-      {% if step.duration_seconds %}<span style="margin-left:auto">{{ step.duration_seconds }}s</span>{% endif %}
-    </div>
-    <div id="player-{{ step.step_id }}"></div>
+<section class="step" id="{{ step.step_id }}">
+  <div class="step-header">
+    <span class="step-num">{{ loop.index }}</span>
+    <h2>{{ step.step_name }}</h2>
+    <span class="step-badge">
+      <span class="badge {{ step.status.value }}">{{ step.status.value }}</span>
+    </span>
   </div>
-  {% endif %}
 
-  {% for ann in step.annotations %}
-  <div class="annotation {{ ann.css_class }}">
-    <span class="icon">{{ ann.icon }}</span>
-    <div>
-      <strong>{{ ann.title }}</strong>
-      <br>{{ ann.detail }}
+  <div class="step-body {% if not (step.recording_cast and cast_data[step.step_id] is defined) %}no-recording{% endif %}">
+    <div class="step-annotations">
+      {% for ann in step.annotations %}
+      <div class="ann {{ ann.css_class }}">
+        <span class="icon">{{ ann.icon }}</span>
+        <div>
+          <strong>{{ ann.title }}</strong>
+          <span class="detail">{{ ann.detail }}</span>
+        </div>
+      </div>
+      {% endfor %}
     </div>
+
+    {% if step.recording_cast and cast_data[step.step_id] is defined %}
+    <div class="step-recording">
+      <div class="rec-label">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        {{ step.step_name | lower }}
+        {% if step.duration_seconds %}<span style="margin-left:auto">{{ step.duration_seconds }}s</span>{% endif %}
+      </div>
+      <div id="player-{{ step.step_id }}"></div>
+    </div>
+    {% endif %}
   </div>
-  {% endfor %}
 </section>
 {% endfor %}
 
-<section id="summary">
-  <h2>Summary Table</h2>
+<section class="summary-section" id="summary">
+  <h2>Summary</h2>
   <table class="summary-table">
     <thead>
       <tr><th>Step</th><th>Status</th><th>Findings</th></tr>
@@ -205,11 +479,11 @@
     <tbody>
       {% for step in findings.steps %}
       <tr>
-        <td><a href="#{{ step.step_id }}">{{ step.step_name }}</a></td>
+        <td><a href="#{{ step.step_id }}" style="color:var(--text);text-decoration:none;">{{ step.step_name }}</a></td>
         <td><span class="badge {{ step.status.value }}">{{ step.status.value }}</span></td>
         <td>
           {% for ann in step.annotations %}
-            <span class="badge {{ ann.category.value if ann.category else ann.severity.value }}">{{ ann.title }}</span>
+            <span class="badge {{ ann.category.value if ann.category else ann.severity.value }}" style="margin:1px;">{{ ann.title }}</span>
           {% endfor %}
         </td>
       </tr>
@@ -218,26 +492,28 @@
   </table>
 </section>
 
-<section id="verdict" class="verdict">
+<section class="verdict" id="verdict">
   <h2>Verdict</h2>
   {% if findings.overall_score is not none %}
-  <div class="score-bar">
-    <div class="fill" style="width: {{ findings.overall_score }}%"></div>
+  <div class="score-row">
+    <div class="score-bar">
+      <div class="fill" style="width: {{ findings.overall_score }}%"></div>
+    </div>
+    <div class="score-num" style="color: {% if findings.overall_score >= 70 %}var(--positive){% elif findings.overall_score >= 40 %}var(--warning){% else %}var(--negative){% endif %}">
+      {{ findings.overall_score }}
+    </div>
   </div>
-  <p style="text-align:center; font-size:1.5rem; font-weight:700;
-     color: {% if findings.overall_score >= 70 %}var(--positive){% elif findings.overall_score >= 40 %}var(--warning){% else %}var(--negative){% endif %}">
-    {{ findings.overall_score }}/100
-  </p>
   {% endif %}
-  <p style="text-align:center; color:var(--muted)">
-    Generated by <code>repo-eval</code> on {{ findings.date }}
+  <p style="color:var(--muted); font-size:0.72rem; margin-top:0.8rem;">
+    Generated by repo-eval on {{ findings.date }}
   </p>
 </section>
 
 </main>
+</div>
 
 <footer>
-  repo-eval - {{ findings.date }} - {{ findings.package_name }}{% if findings.package_version %} {{ findings.package_version }}{% endif %}
+  repo-eval &middot; {{ findings.date }} &middot; {{ findings.package_name }}{% if findings.package_version %} {{ findings.package_version }}{% endif %}
 </footer>
 
 <script src="https://unpkg.com/asciinema-player@3.9.0/dist/bundle/asciinema-player.min.js"></script>
@@ -256,7 +532,7 @@
       loop: false,
       speed: 1.5,
       idleTimeLimit: 1,
-      rows: 30,
+      rows: 25,
     }
   );
 })();

@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flyte SDK 2.0 Adoption Barrier Analysis</title>
+<link rel="stylesheet" type="text/css" href="https://unpkg.com/asciinema-player@3.9.0/dist/bundle/asciinema-player.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --accent: #7652a2;
+    --accent-light: #7652a222;
+    --accent-mid: #7652a244;
+    --dark: #16151e;
+    --darker: #0e0d14;
+    --surface: #1c1b26;
+    --surface2: #232230;
+    --border: #2a293a;
+    --light: #dedde4;
+    --text: #c8c5d6;
+    --text-bright: #eae8f2;
+    --muted: #7a7790;
+    --positive: #34d058;
+    --negative: #f85149;
+    --warning: #d29922;
+    --code-bg: #1a1924;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--darker);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 13px;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    background: var(--dark);
+    border-bottom: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  header .logo-mark {
+    flex-shrink: 0;
+    width: 44px;
+    height: 40px;
+    color: var(--accent);
+  }
+
+  header .header-text h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-bright);
+    letter-spacing: -0.02em;
+  }
+
+  header .header-text p {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 0.15rem;
+  }
+
+  .meta-bar {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .meta-bar span {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ===== LAYOUT ===== */
+  .page {
+    display: flex;
+    min-height: calc(100vh - 80px);
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    background: var(--dark);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .sidebar h2 {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    padding: 0 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .sidebar a {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 1rem;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.75rem;
+    transition: background 0.15s;
+  }
+
+  .sidebar a:hover { background: var(--surface); }
+
+  .sidebar .status-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .sidebar .status-dot.pass { background: var(--positive); }
+  .sidebar .status-dot.fail { background: var(--negative); }
+  .sidebar .status-dot.warning { background: var(--warning); }
+
+  /* Main content */
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 1.5rem 2rem 4rem;
+  }
+
+  /* ===== STEP SECTION (two columns) ===== */
+  section.step {
+    margin-bottom: 2.5rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--dark);
+    overflow: hidden;
+  }
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.7rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .step-header .step-num {
+    background: var(--accent);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    width: 20px; height: 20px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .step-header h2 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+
+  .step-header .step-badge {
+    margin-left: auto;
+  }
+
+  .step-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 200px;
+  }
+
+  .step-body.no-recording {
+    grid-template-columns: 1fr;
+  }
+
+  /* Left: annotations */
+  .step-annotations {
+    padding: 1rem;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .step-body.no-recording .step-annotations {
+    border-right: none;
+  }
+
+  /* Right: recording */
+  .step-recording {
+    background: var(--code-bg);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .step-recording .rec-label {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.65rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .dot.r { background: #ff5f58; } .dot.y { background: #ffbd2e; } .dot.g { background: #18c132; }
+
+  .step-recording .asciinema-player-wrapper {
+    flex: 1;
+  }
+
+  /* ===== ANNOTATIONS ===== */
+  .ann {
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .ann .icon {
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    margin-top: 0.05rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .ann.positive { background: rgba(52,208,88,0.06); border: 1px solid rgba(52,208,88,0.18); }
+  .ann.negative { background: rgba(248,81,73,0.06); border: 1px solid rgba(248,81,73,0.18); }
+  .ann.warning  { background: rgba(210,153,34,0.06); border: 1px solid rgba(210,153,34,0.18); }
+  .ann.positive .icon { color: var(--positive); }
+  .ann.negative .icon { color: var(--negative); }
+  .ann.warning  .icon { color: var(--warning); }
+
+  .ann strong {
+    color: var(--text-bright);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 0.15rem;
+    font-size: 0.8rem;
+  }
+
+  .ann .detail { color: var(--text); }
+
+  code {
+    background: var(--code-bg);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    color: #c9b4e2;
+    border: 1px solid var(--border);
+  }
+
+  /* ===== SUMMARY ===== */
+  section.summary-section {
+    margin-bottom: 2rem;
+  }
+
+  section.summary-section h2 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+  }
+
+  .summary-table th {
+    background: var(--surface);
+    padding: 0.5rem 0.8rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .summary-table td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .summary-table tr:hover td { background: var(--surface); }
+
+  .badge {
+    display: inline-block;
+    padding: 0.1em 0.5em;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .badge.pass { background: rgba(52,208,88,0.12); color: var(--positive); }
+  .badge.warning { background: rgba(210,153,34,0.12); color: var(--warning); }
+  .badge.fail { background: rgba(248,81,73,0.12); color: var(--negative); }
+  .badge.bug { background: rgba(248,81,73,0.12); color: var(--negative); }
+  .badge.ux { background: rgba(210,153,34,0.12); color: var(--warning); }
+  .badge.design { background: rgba(77,101,255,0.12); color: #8ea4ff; }
+  .badge.docs { background: var(--accent-light); color: var(--accent); }
+
+  /* ===== VERDICT ===== */
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+
+  .verdict h2 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-bright);
+    margin-bottom: 1rem;
+  }
+
+  .score-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .score-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--code-bg);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .score-bar .fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--negative), var(--warning), var(--positive));
+  }
+
+  .score-num {
+    font-size: 1.4rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 60px;
+    text-align: right;
+  }
+
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    color: var(--muted);
+    font-size: 0.65rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 1100px) {
+    .step-body { grid-template-columns: 1fr; }
+    .step-annotations { border-right: none; border-bottom: 1px solid var(--border); }
+    .sidebar { display: none; }
+    header { padding: 1.5rem; }
+    main { padding: 1rem; }
+  }
+
+  @media (max-width: 600px) {
+    header { flex-direction: column; align-items: flex-start; }
+    .meta-bar { margin-left: 0; flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <svg class="logo-mark" width="44" height="40" viewBox="0 0 44 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10.7325 20.4388C11.6982 18.1438 12.1898 15.7827 12.6324 13.4131C13.387 9.37307 13.8972 5.30623 13.7258 1.18364C13.6932 0.40028 13.9138 0.109059 14.7575 0.188746C17.0421 0.404513 19.3074 0.665615 21.3612 1.79067C21.9048 2.0885 22.382 1.9286 22.9017 1.78205C26.8327 0.67369 30.8187 -0.0779745 34.9253 0.00645783C37.6237 0.0619366 40.2407 0.49755 42.7297 1.6147C43.5435 1.97993 43.845 2.49922 43.77 3.36313C43.5683 5.68772 42.639 7.77122 41.6739 9.84286C41.4101 10.4092 41.0266 10.0835 40.7011 9.87791C37.4258 7.80932 33.9086 6.24425 30.286 4.90798C27.7148 3.95952 25.1144 3.09629 22.3025 2.66542C23.1702 3.52404 24.0071 4.41672 24.911 5.23541C28.913 8.86013 33.0836 12.2613 37.9038 14.771C38.4356 15.048 38.5646 15.3318 38.1997 15.85C36.8598 17.7528 35.489 19.6321 33.4785 20.8918C32.8806 21.2665 32.7376 21.7994 32.5894 22.3911C31.4367 26.9944 29.762 31.3745 27.0155 35.2878C25.8812 36.9384 24.4777 38.3869 22.8637 39.5728C22.1292 40.1043 21.4749 40.1669 20.7303 39.6072C18.9337 38.2569 17.5829 36.5179 16.3305 34.6852C15.9864 34.1815 16.2307 33.9058 16.6734 33.678C20.2832 31.8213 23.4905 29.3836 26.5822 26.7839C28.484 25.2109 30.2824 23.5168 31.966 21.7121C31.611 21.3738 31.3066 21.6228 31.0411 21.6936C25.0841 23.2818 19.3462 25.4144 14.0708 28.6582C13.3497 29.1016 12.9663 29.0464 12.6148 28.2355C11.7169 26.1637 10.8845 24.0742 10.7443 21.7951C10.6984 21.0484 10.2419 20.6461 9.78687 20.2039C6.53928 17.048 3.71473 13.5729 1.74933 9.46218C0.789341 7.45433 0.08806 5.37105 0.00218354 3.10907C-0.0318759 2.21194 0.331824 1.71144 1.14182 1.41953C3.02246 0.738513 4.98966 0.32577 6.98543 0.193467C7.7856 0.140088 7.98221 0.421906 7.96127 1.14386C7.81334 6.24361 8.59293 11.2413 9.68012 16.2002C9.99177 17.6216 10.3796 19.0264 10.7325 20.4388ZM21.9306 3.81479C20.6244 10.5823 16.5199 15.6393 11.8931 20.4027C18.2097 17.8236 24.5067 18.9802 30.8619 20.2355C25.9858 15.7476 23.776 9.9179 21.9306 3.81479Z" fill="currentColor"/>
+  </svg>
+  <div class="header-text">
+    <h1>Flyte SDK 2.0 Adoption Barrier Analysis</h1>
+    <p>Adoption barrier analysis</p>
+  </div>
+  <div class="meta-bar">
+    <span>flyte 2.0.7</span>
+    <span>py3.12</span>
+    <span>Linux x86_64</span>
+    <span>2026-03-17</span>
+  </div>
+</header>
+
+<div class="page">
+
+<nav class="sidebar">
+  <h2>Steps</h2>
+  
+  <a href="#setup">
+    <span class="status-dot pass"></span>
+    Installation
+  </a>
+  
+  <a href="#first_contact">
+    <span class="status-dot fail"></span>
+    Hello World (README)
+  </a>
+  
+  <a href="#cli">
+    <span class="status-dot pass"></span>
+    CLI Usage
+  </a>
+  
+  <a href="#deps">
+    <span class="status-dot warning"></span>
+    Dependencies &amp; Weight
+  </a>
+  
+  <a href="#summary" style="margin-top:0.5rem; border-top:1px solid var(--border); padding-top:0.5rem;">Summary</a>
+  <a href="#verdict">Verdict</a>
+</nav>
+
+<main>
+
+
+<section class="step" id="setup">
+  <div class="step-header">
+    <span class="step-num">1</span>
+    <h2>Installation</h2>
+    <span class="step-badge">
+      <span class="badge pass">pass</span>
+    </span>
+  </div>
+
+  <div class="step-body ">
+    <div class="step-annotations">
+      
+      <div class="ann positive">
+        <span class="icon">+</span>
+        <div>
+          <strong>Clean install</strong>
+          <span class="detail">`pip install flyte` completes without errors. The package is distributed as a wheel on PyPI, so no build toolchain is required.</span>
+        </div>
+      </div>
+      
+      <div class="ann positive">
+        <span class="icon">+</span>
+        <div>
+          <strong>54 packages installed</strong>
+          <span class="detail">54 transitive packages is within acceptable range (threshold: 80). Notable heavy transitive deps include grpcio, protobuf, pydantic, and cryptography (via keyring).</span>
+        </div>
+      </div>
+      
+      <div class="ann positive">
+        <span class="icon">+</span>
+        <div>
+          <strong>Import time: 0.31s</strong>
+          <span class="detail">0.31s import time is acceptable for an SDK of this scope. Most of the time is likely spent importing grpcio and protobuf stubs.</span>
+        </div>
+      </div>
+      
+    </div>
+
+    
+    <div class="step-recording">
+      <div class="rec-label">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        installation
+        <span style="margin-left:auto">3.68s</span>
+      </div>
+      <div id="player-setup"></div>
+    </div>
+    
+  </div>
+</section>
+
+<section class="step" id="first_contact">
+  <div class="step-header">
+    <span class="step-num">2</span>
+    <h2>Hello World (README)</h2>
+    <span class="step-badge">
+      <span class="badge fail">fail</span>
+    </span>
+  </div>
+
+  <div class="step-body ">
+    <div class="step-annotations">
+      
+      <div class="ann negative">
+        <span class="icon">x</span>
+        <div>
+          <strong>README example crashes: `_LocalRun` has no `result` attribute</strong>
+          <span class="detail">The first Python example in the package METADATA (README) calls `run.result` on line 95, but the `_LocalRun` class (defined in `flyte/_run.py:640-674`) does not expose a `result` property. The correct API is `run.outputs()` which returns an `ActionOutputs` tuple subclass. To get the scalar result: `run.outputs()[0]` or `run.outputs().o0`. This is a documentation bug shipped in the 2.0.7 METADATA, meaning every new user hitting PyPI or `pip show` will encounter broken example code on their first try.</span>
+        </div>
+      </div>
+      
+      <div class="ann warning">
+        <span class="icon">!</span>
+        <div>
+          <strong>ActionOutputs API is non-obvious</strong>
+          <span class="detail">`flyte.run()` returns a `_LocalRun` whose `outputs()` method returns `ActionOutputs`, a `tuple` subclass. Results are accessed positionally (`outputs[0]`) or via auto-generated names (`outputs.o0`, `outputs.named_outputs[&#39;o0&#39;]`). This is not documented in the README and would require reading source code to discover after hitting the `AttributeError`.</span>
+        </div>
+      </div>
+      
+      <div class="ann warning">
+        <span class="icon">!</span>
+        <div>
+          <strong>No quickstart recovery path</strong>
+          <span class="detail">After the README example fails, there is no `--help` hint, error suggestion, or link to docs in the traceback. A new user must read source code or search GitHub issues to find the correct API. The SDK could improve this by adding a `__getattr__` on `_LocalRun` that raises a helpful error like &#34;Did you mean .outputs()?&#34;.</span>
+        </div>
+      </div>
+      
+    </div>
+
+    
+    <div class="step-recording">
+      <div class="rec-label">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        hello world (readme)
+        <span style="margin-left:auto">4.26s</span>
+      </div>
+      <div id="player-first_contact"></div>
+    </div>
+    
+  </div>
+</section>
+
+<section class="step" id="cli">
+  <div class="step-header">
+    <span class="step-num">3</span>
+    <h2>CLI Usage</h2>
+    <span class="step-badge">
+      <span class="badge pass">pass</span>
+    </span>
+  </div>
+
+  <div class="step-body ">
+    <div class="step-annotations">
+      
+      <div class="ann positive">
+        <span class="icon">+</span>
+        <div>
+          <strong>CLI --version works</strong>
+          <span class="detail">`flyte --version` returns `Flyte SDK version: 2.0.7`. The CLI entry point is registered correctly via `rich-click`.</span>
+        </div>
+      </div>
+      
+      <div class="ann positive">
+        <span class="icon">+</span>
+        <div>
+          <strong>CLI --help works</strong>
+          <span class="detail">`flyte --help` outputs well-formatted documentation powered by `rich-click`. Subcommands are clearly listed.</span>
+        </div>
+      </div>
+      
+    </div>
+
+    
+    <div class="step-recording">
+      <div class="rec-label">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        cli usage
+        <span style="margin-left:auto">3.79s</span>
+      </div>
+      <div id="player-cli"></div>
+    </div>
+    
+  </div>
+</section>
+
+<section class="step" id="deps">
+  <div class="step-header">
+    <span class="step-num">4</span>
+    <h2>Dependencies &amp; Weight</h2>
+    <span class="step-badge">
+      <span class="badge warning">warning</span>
+    </span>
+  </div>
+
+  <div class="step-body ">
+    <div class="step-annotations">
+      
+      <div class="ann warning">
+        <span class="icon">!</span>
+        <div>
+          <strong>20 direct dependencies</strong>
+          <span class="detail">The package declares 20 direct runtime dependencies including heavyweight libraries: grpcio, protobuf, pydantic, httpx, keyring, cloudpickle, fsspec, and obstore. This is heavy for a first install and increases the surface area for version conflicts in existing projects.</span>
+        </div>
+      </div>
+      
+      <div class="ann warning">
+        <span class="icon">!</span>
+        <div>
+          <strong>`flyteidl2==2.0.7` exact pin risks conflicts</strong>
+          <span class="detail">`flyteidl2` is pinned to exactly `2.0.7` (lock-step with the SDK version). This means any environment that needs a different flyteidl2 version (e.g., for another Flyte-ecosystem tool) will hit an immediate resolver conflict. Lock-step pins are common for protobuf IDL packages but create friction in monorepos or shared virtualenvs.</span>
+        </div>
+      </div>
+      
+      <div class="ann warning">
+        <span class="icon">!</span>
+        <div>
+          <strong>`rich-click==1.8.9` exact pin risks conflicts</strong>
+          <span class="detail">`rich-click` is pinned to exactly `1.8.9`. Any other package in the environment requiring a different rich-click version will cause pip to fail. This pin is likely due to API compatibility concerns but should ideally be a compatible-release constraint (`~=1.8.9`) instead of an exact pin.</span>
+        </div>
+      </div>
+      
+      <div class="ann positive">
+        <span class="icon">+</span>
+        <div>
+          <strong>54 total packages in venv</strong>
+          <span class="detail">Transitive dependency count is 54, well under the 80 threshold.</span>
+        </div>
+      </div>
+      
+    </div>
+
+    
+    <div class="step-recording">
+      <div class="rec-label">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        dependencies &amp; weight
+        <span style="margin-left:auto">3.42s</span>
+      </div>
+      <div id="player-deps"></div>
+    </div>
+    
+  </div>
+</section>
+
+
+<section class="summary-section" id="summary">
+  <h2>Summary</h2>
+  <table class="summary-table">
+    <thead>
+      <tr><th>Step</th><th>Status</th><th>Findings</th></tr>
+    </thead>
+    <tbody>
+      
+      <tr>
+        <td><a href="#setup" style="color:var(--text);text-decoration:none;">Installation</a></td>
+        <td><span class="badge pass">pass</span></td>
+        <td>
+          
+            <span class="badge pass" style="margin:1px;">Clean install</span>
+          
+            <span class="badge pass" style="margin:1px;">54 packages installed</span>
+          
+            <span class="badge pass" style="margin:1px;">Import time: 0.31s</span>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td><a href="#first_contact" style="color:var(--text);text-decoration:none;">Hello World (README)</a></td>
+        <td><span class="badge fail">fail</span></td>
+        <td>
+          
+            <span class="badge bug" style="margin:1px;">README example crashes: `_LocalRun` has no `result` attribute</span>
+          
+            <span class="badge ux" style="margin:1px;">ActionOutputs API is non-obvious</span>
+          
+            <span class="badge ux" style="margin:1px;">No quickstart recovery path</span>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td><a href="#cli" style="color:var(--text);text-decoration:none;">CLI Usage</a></td>
+        <td><span class="badge pass">pass</span></td>
+        <td>
+          
+            <span class="badge pass" style="margin:1px;">CLI --version works</span>
+          
+            <span class="badge pass" style="margin:1px;">CLI --help works</span>
+          
+        </td>
+      </tr>
+      
+      <tr>
+        <td><a href="#deps" style="color:var(--text);text-decoration:none;">Dependencies &amp; Weight</a></td>
+        <td><span class="badge warning">warning</span></td>
+        <td>
+          
+            <span class="badge ux" style="margin:1px;">20 direct dependencies</span>
+          
+            <span class="badge ux" style="margin:1px;">`flyteidl2==2.0.7` exact pin risks conflicts</span>
+          
+            <span class="badge ux" style="margin:1px;">`rich-click==1.8.9` exact pin risks conflicts</span>
+          
+            <span class="badge pass" style="margin:1px;">54 total packages in venv</span>
+          
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+</section>
+
+<section class="verdict" id="verdict">
+  <h2>Verdict</h2>
+  
+  <div class="score-row">
+    <div class="score-bar">
+      <div class="fill" style="width: 45%"></div>
+    </div>
+    <div class="score-num" style="color: var(--warning)">
+      45
+    </div>
+  </div>
+  
+  <p style="color:var(--muted); font-size:0.72rem; margin-top:0.8rem;">
+    Generated by repo-eval on 2026-03-17
+  </p>
+</section>
+
+</main>
+</div>
+
+<footer>
+  repo-eval &middot; 2026-03-17 &middot; flyte 2.0.7
+</footer>
+
+<script src="https://unpkg.com/asciinema-player@3.9.0/dist/bundle/asciinema-player.min.js"></script>
+<script>
+
+
+(function() {
+  var castData = {"version": 2, "width": 110, "height": 40, "events": [[0.003388, "o", "# Step 1: Install flyte\r\n"], [0.304452, "o", "$ uv venv .venv --python 3.12\r\nUsing CPython 3.12\r\nCreating virtual environment at: .venv\r\n"], [0.605821, "o", "\r\n$ uv pip install flyte\r\n"], [0.643018, "o", "  Installed aiofiles>=24.1.0\r\n  Installed click>=8.2.1\r\n  Installed cloudpickle>=3.1.1\r\n  Installed docstring_parser>=0.16\r\n  Installed fsspec>=2025.3.0\r\n  Installed grpcio>=1.71.0\r\n  Installed obstore>=0.7.3\r\n  Installed protobuf>=6.30.1\r\n  Installed pydantic>=2.10.6\r\n  Installed pyyaml>=6.0.2\r\n  Installed rich-click==1.8.9\r\n  Installed httpx<1.0.0,>=0.28.1\r\n  Installed keyring>=25.6.0\r\n  Installed msgpack>=1.1.0\r\n  Installed toml>=0.10.2\r\n  Installed async-lru>=2.0.5\r\n  Installed mashumaro\r\n  Installed aiolimiter>=1.2.1\r\n  Installed flyteidl2==2.0.7\r\n"], [0.643032, "o", "  Installed packaging\r\n"], [0.64867, "o", "  Installed flyte\r\n"], [0.950051, "o", "\r\n$ python -c \"import flyte; print(flyte.__version__)\"\r\n"], [1.222335, "o", "2.0.7\r\n"]]};
+  AsciinemaPlayer.create(
+    { data: castData },
+    document.getElementById('player-setup'),
+    {
+      theme: 'monokai',
+      fit: 'width',
+      autoPlay: false,
+      loop: false,
+      speed: 1.5,
+      idleTimeLimit: 1,
+      rows: 25,
+    }
+  );
+})();
+
+
+
+(function() {
+  var castData = {"version": 2, "width": 110, "height": 40, "events": [[0.003047, "o", "# Step 2: Running the README example as-is\r\n"], [0.504342, "o", "--- Code from README ---\r\n"], [0.505233, "o", "import asyncio\r\nimport flyte\r\n\r\nenv = flyte.TaskEnvironment(\r\n    name=\"hello_world\",\r\n    image=flyte.Image.from_debian_base(python_version=(3, 12)),\r\n)\r\n\r\n@env.task\r\ndef calculate(x: int) -> int:\r\n    return x * 2 + 5\r\n\r\n@env.task\r\nasync def main(numbers: list[int]) -> float:\r\n    results = await asyncio.gather(*[\r\n        calculate.aio(num) for num in numbers\r\n    ])\r\n    return sum(results) / len(results)\r\n\r\nif __name__ == \"__main__\":\r\n    flyte.init()\r\n    run = flyte.run(main, numbers=list(range(10)))\r\n    print(f\"Result: {run.result}\")\r\n"], [1.006576, "o", "$ python readme_example.py\r\n"], [1.526748, "o", "Filtered traceback (most recent call last):\r\n"], [1.526763, "o", "  File \"/output/recordings/readme_example.py\", line 23, in <module>\r\n    print(f\"Result: {run.result}\")\r\n                     ^^^^^^^^^^\r\nAttributeError: '_LocalRun' object has no attribute 'result'\r\n"], [1.526769, "o", "\r\n"]]};
+  AsciinemaPlayer.create(
+    { data: castData },
+    document.getElementById('player-first_contact'),
+    {
+      theme: 'monokai',
+      fit: 'width',
+      autoPlay: false,
+      loop: false,
+      speed: 1.5,
+      idleTimeLimit: 1,
+      rows: 25,
+    }
+  );
+})();
+
+
+
+(function() {
+  var castData = {"version": 2, "width": 110, "height": 40, "events": [[0.002758, "o", "# Step 3: CLI Usage\r\n"], [0.503991, "o", "$ flyte --version\r\n"], [0.504829, "o", "/output/recordings/cli_test.sh: line 5: flyte: command not found\r\n"], [1.006146, "o", "\r\n$ flyte --help\r\n"], [1.006875, "o", "/output/recordings/cli_test.sh: line 9: flyte: command not found\r\n"], [1.508309, "o", "\r\n"]]};
+  AsciinemaPlayer.create(
+    { data: castData },
+    document.getElementById('player-cli'),
+    {
+      theme: 'monokai',
+      fit: 'width',
+      autoPlay: false,
+      loop: false,
+      speed: 1.5,
+      idleTimeLimit: 1,
+      rows: 25,
+    }
+  );
+})();
+
+
+
+(function() {
+  var castData = {"version": 2, "width": 110, "height": 40, "events": [[0.002837, "o", "# Step: Dependencies & Weight\r\n"], [0.504016, "o", "--- Direct dependencies ---\r\n"], [0.542049, "o", "Direct: 20\r\n  aiofiles>=24.1.0\r\n  aiolimiter>=1.2.1\r\n  async-lru>=2.0.5\r\n  click>=8.2.1\r\n  cloudpickle>=3.1.1\r\n  docstring_parser>=0.16\r\n  flyteidl2==2.0.7\r\n  fsspec>=2025.3.0\r\n  grpcio>=1.71.0\r\n  httpx<1.0.0,>=0.28.1\r\n  keyring>=25.6.0\r\n  mashumaro\r\n  msgpack>=1.1.0\r\n  obstore>=0.7.3\r\n  packaging\r\n  protobuf>=6.30.1"], [0.542065, "o", "\r\n  pydantic>=2.10.6\r\n  pyyaml>=6.0.2\r\n  rich-click==1.8.9\r\n  toml>=0.10.2\r\n"], [1.049772, "o", "\r\n--- Total packages ---\r\n"], [1.086718, "o", "Total: 54\r\n"], [1.594295, "o", "\r\n--- Import time ---\r\n"], [1.86452, "o", "Import time: 0.260s\r\n"]]};
+  AsciinemaPlayer.create(
+    { data: castData },
+    document.getElementById('player-deps'),
+    {
+      theme: 'monokai',
+      fit: 'width',
+      autoPlay: false,
+      loop: false,
+      speed: 1.5,
+      idleTimeLimit: 1,
+      rows: 25,
+    }
+  );
+})();
+
+
+</script>
+
+</body>
+</html>
