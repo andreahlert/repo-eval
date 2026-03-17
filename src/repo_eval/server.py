@@ -295,11 +295,12 @@ class AppServer:
         config = load_config(config_path) if config_path else load_config()
         config.package_name = target
 
-        # Inject readme_url into first_contact step params
-        if readme_url:
-            for sc in config.steps:
-                if sc.id == "first_contact":
-                    sc.params["readme_url"] = readme_url
+        # Inject discovered URLs into step params
+        for sc in config.steps:
+            if sc.id == "first_contact" and readme_url:
+                sc.params["readme_url"] = readme_url
+            if sc.id == "examples" and repo_url:
+                sc.params["repo_url"] = repo_url
 
         enabled_steps = [s for s in config.steps if s.enabled]
         all_steps = [{"id": "_setup", "name": "Environment Setup"}] + \

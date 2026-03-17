@@ -26,6 +26,17 @@ steps:
         - "{package} --version"
         - "{package} --help"
 
+  - id: introspect
+    name: "API Introspection"
+    module: repo_eval.steps.introspect
+    params: {}
+
+  - id: examples
+    name: "Repo Examples"
+    module: repo_eval.steps.examples
+    params:
+      repo_url: null  # auto-resolved from PyPI/GitHub
+
   - id: deps
     name: "Dependencies & Weight"
     module: repo_eval.steps.deps
