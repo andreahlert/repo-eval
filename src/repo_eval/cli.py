@@ -13,7 +13,7 @@ from repo_eval.runner import EvalRunner
 
 
 @click.command()
-@click.argument("target")
+@click.argument("target", default="_")
 @click.option("--config", "-c", "config_path", type=click.Path(), default=None,
               help="Custom checklist YAML config.")
 @click.option("--output", "-o", "output_dir", default=None,
@@ -82,24 +82,16 @@ def main(
     findings_path = output / "findings.json"
     report_path = output / "report.html"
 
-    # Live mode: real-time browser dashboard
+    # Live mode: real-time browser dashboard with wizard
     if live:
-        from repo_eval.live import LiveRunner
-        config = load_config(config_path)
-        if python_version:
-            config.python_version = python_version
-        if config.package_name is None:
-            config.package_name = target
-        step_filter = steps.split(",") if steps else None
-        runner = LiveRunner(
-            target=target,
-            config=config,
-            output_dir=output,
-            port=port,
-            step_filter=step_filter,
+        from repo_eval.server import AppServer
+        app = AppServer(port=port, output_base=output)
+        # If target is provided, auto-start. Otherwise show config screen.
+        app.run(
+            initial_target=target if target != "_" else None,
+            initial_mode=mode,
             config_path=config_path,
         )
-        runner.run()
         return
 
     # Report-only: just regenerate HTML

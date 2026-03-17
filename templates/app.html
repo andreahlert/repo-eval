@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>repo-eval</title>
+<link rel="stylesheet" href="https://unpkg.com/@xterm/xterm@5.5.0/css/xterm.css" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --accent: #6366f1;
+    --accent-light: #6366f115;
+    --bg: #ffffff;
+    --surface: #f7f7f9;
+    --surface2: #eeeef2;
+    --border: #e0dfe6;
+    --border-light: #ececf0;
+    --text: #2c2b3a;
+    --text-secondary: #55546a;
+    --muted: #8b8a9e;
+    --positive: #1a7f37;
+    --positive-bg: #dafbe1;
+    --positive-border: #aceebb;
+    --negative: #cf222e;
+    --negative-bg: #ffebe9;
+    --negative-border: #ffcecb;
+    --warning: #9a6700;
+    --warning-bg: #fff8c5;
+    --warning-border: #f5e0a0;
+    --terminal-bg: #1e1e2e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.6; }
+
+  .screen { display: none; }
+  .screen.active { display: flex; }
+
+  /* ===== SCREEN 1: CONFIG ===== */
+  #screen-config {
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 2rem;
+  }
+
+  #screen-config h1 { font-size: 1.4rem; font-weight: 700; color: var(--text); }
+  #screen-config p.subtitle { font-size: 0.85rem; color: var(--muted); margin-top: -0.5rem; }
+
+  .search-box {
+    width: 100%; max-width: 500px;
+    display: flex; gap: 0.5rem;
+  }
+
+  .search-box input {
+    flex: 1; padding: 0.6rem 1rem; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 0.9rem; font-family: 'Inter', sans-serif;
+    outline: none; transition: border 0.2s;
+  }
+
+  .search-box input:focus { border-color: var(--accent); }
+
+  .search-box button {
+    padding: 0.6rem 1.2rem; border-radius: 8px; border: none;
+    background: var(--accent); color: white; font-weight: 600;
+    font-size: 0.85rem; cursor: pointer; font-family: 'Inter', sans-serif;
+  }
+
+  .search-box button:hover { opacity: 0.9; }
+
+  #search-results {
+    width: 100%; max-width: 500px; min-height: 60px;
+  }
+
+  .result-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.2rem;
+    background: var(--surface); margin-bottom: 0.5rem;
+  }
+
+  .result-card .pkg-name { font-weight: 700; font-size: 1rem; }
+  .result-card .pkg-version { font-size: 0.75rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-left: 0.4rem; }
+  .result-card .pkg-summary { font-size: 0.82rem; color: var(--text-secondary); margin-top: 0.3rem; }
+  .result-card .pkg-repo { font-size: 0.75rem; color: var(--accent); margin-top: 0.2rem; }
+
+  .mode-toggle {
+    display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    margin-top: 0.5rem;
+  }
+
+  .mode-toggle label {
+    padding: 0.45rem 1.2rem; font-size: 0.82rem; cursor: pointer;
+    font-weight: 500; transition: all 0.15s; color: var(--text-secondary);
+    border-right: 1px solid var(--border);
+  }
+
+  .mode-toggle label:last-child { border-right: none; }
+  .mode-toggle input { display: none; }
+  .mode-toggle input:checked + label { background: var(--accent); color: white; }
+
+  .start-btn {
+    padding: 0.7rem 2.5rem; border-radius: 10px; border: none;
+    background: var(--accent); color: white; font-weight: 700;
+    font-size: 1rem; cursor: pointer; font-family: 'Inter', sans-serif;
+    margin-top: 0.5rem; display: none;
+  }
+
+  .start-btn:hover { opacity: 0.9; }
+  .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ===== SCREEN 2: BUILDING ===== */
+  #screen-building {
+    min-height: 100vh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 2rem;
+  }
+
+  #screen-building h2 { font-size: 1.1rem; font-weight: 600; }
+
+  .build-progress {
+    width: 100%; max-width: 500px;
+  }
+
+  .build-progress .bar-track {
+    height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-bottom: 0.8rem;
+  }
+
+  .build-progress .bar-fill {
+    height: 100%; background: var(--accent); border-radius: 3px;
+    transition: width 0.3s ease; width: 0%;
+  }
+
+  .build-progress .pct {
+    font-size: 0.75rem; color: var(--muted); font-family: 'JetBrains Mono', monospace;
+    text-align: right; margin-bottom: 0.3rem;
+  }
+
+  #build-log {
+    width: 100%; max-width: 500px; max-height: 200px; overflow-y: auto;
+    background: var(--terminal-bg); border-radius: 8px; padding: 0.6rem 0.8rem;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem;
+    color: #cdd6f4; line-height: 1.5;
+  }
+
+  /* ===== SCREEN 3: DASHBOARD ===== */
+  #screen-dashboard {
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .dash-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .dash-header .pkg-avatar {
+    width: 36px; height: 36px; border-radius: 8px;
+    object-fit: cover; border: 1px solid var(--border);
+  }
+
+  .dash-header .header-text h1 { font-size: 1.05rem; font-weight: 700; }
+  .dash-header .header-text p { font-size: 0.72rem; color: var(--muted); }
+
+  .dash-header .header-actions {
+    margin-left: auto; display: flex; align-items: center; gap: 0.5rem;
+  }
+
+  .meta-tag {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 0.15rem 0.5rem; border-radius: 4px;
+    font-size: 0.68rem; color: var(--muted); font-family: 'JetBrains Mono', monospace;
+  }
+
+  .btn {
+    padding: 0.3rem 0.7rem; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text-secondary); font-size: 0.75rem;
+    font-family: 'Inter', sans-serif; font-weight: 500; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 0.3rem;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+
+  #score-display {
+    font-size: 1.2rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; display: none;
+  }
+
+  .dash-progress {
+    background: var(--surface); border-bottom: 1px solid var(--border); padding: 0.4rem 2rem;
+  }
+
+  .dash-progress .info { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.2rem; }
+  .dash-progress .track { height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .dash-progress .fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+
+  .dash-body { display: flex; flex: 1; }
+
+  .dash-sidebar {
+    width: 190px; flex-shrink: 0; background: var(--surface);
+    border-right: 1px solid var(--border); padding: 1rem 0;
+    position: sticky; top: 0; height: calc(100vh - 110px); overflow-y: auto;
+  }
+
+  .dash-sidebar h2 { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 0 1rem; margin-bottom: 0.4rem; font-weight: 600; }
+  .dash-sidebar a { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 1rem; text-decoration: none; color: var(--muted); font-size: 0.8rem; cursor: pointer; }
+  .dash-sidebar a:hover { background: var(--surface2); }
+  .dash-sidebar a.active { color: var(--text); background: var(--surface2); font-weight: 600; }
+  .dash-sidebar a.pass { color: var(--positive); }
+  .dash-sidebar a.fail { color: var(--negative); }
+  .dash-sidebar a.warning { color: var(--warning); }
+
+  .dot-s { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--border); }
+  .dot-s.running { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+  .dot-s.pass { background: var(--positive); }
+  .dot-s.fail { background: var(--negative); }
+  .dot-s.warning { background: var(--warning); }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .dash-main { flex: 1; min-width: 0; padding: 1.2rem 1.5rem 3rem; overflow-y: auto; }
+
+  .step-panel { margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+
+  .panel-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .panel-header .num { background: var(--accent); color: white; width: 20px; height: 20px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; }
+  .panel-header .name { font-size: 0.85rem; font-weight: 600; }
+  .panel-header .timer { margin-left: auto; font-size: 0.68rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .panel-header .badge { padding: 0.1em 0.45em; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; display: none; }
+
+  .badge.pass { background: var(--positive-bg); color: var(--positive); display: inline-block; }
+  .badge.fail { background: var(--negative-bg); color: var(--negative); display: inline-block; }
+  .badge.warning { background: var(--warning-bg); color: var(--warning); display: inline-block; }
+
+  .panel-body { display: grid; grid-template-columns: 1fr 1fr; }
+  .terminal-pane { background: var(--terminal-bg); min-height: 220px; max-height: 400px; overflow: hidden; padding: 0.3rem; }
+  .annotations-pane { padding: 0.8rem 1rem; min-height: 220px; max-height: 400px; overflow-y: auto; border-left: 1px solid var(--border-light); }
+  .annotations-pane .placeholder { color: var(--muted); font-size: 0.78rem; font-style: italic; }
+
+  .ann { border-radius: 7px; padding: 0.55rem 0.75rem; margin-bottom: 0.4rem; font-size: 0.8rem; line-height: 1.5; display: flex; gap: 0.5rem; align-items: flex-start; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .ann .icon { font-weight: 700; font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+  .ann.positive { background: var(--positive-bg); border: 1px solid var(--positive-border); }
+  .ann.negative { background: var(--negative-bg); border: 1px solid var(--negative-border); }
+  .ann.warning { background: var(--warning-bg); border: 1px solid var(--warning-border); }
+  .ann.positive .icon { color: var(--positive); }
+  .ann.negative .icon { color: var(--negative); }
+  .ann.warning .icon { color: var(--warning); }
+  .ann strong { display: block; margin-bottom: 0.1rem; color: var(--text); font-size: 0.82rem; }
+  .ann .detail { color: var(--text-secondary); font-size: 0.78rem; }
+
+  code { background: var(--surface); padding: 0.1em 0.3em; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 0.85em; color: #6e44a0; }
+
+  @media (max-width: 1000px) {
+    .panel-body { grid-template-columns: 1fr; }
+    .annotations-pane { border-left: none; border-top: 1px solid var(--border-light); }
+    .dash-sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SCREEN 1: CONFIG -->
+<div id="screen-config" class="screen active">
+  <h1>repo-eval</h1>
+  <p class="subtitle">Analyze any Python package for adoption barriers</p>
+
+  <div class="search-box">
+    <input id="search-input" type="text" placeholder="Package name or GitHub URL..." autofocus />
+    <button onclick="doSearch()">Search</button>
+  </div>
+
+  <div id="search-results"></div>
+
+  <div class="mode-toggle" id="mode-toggle" style="display:none">
+    <input type="radio" name="mode" id="mode-auto" value="auto" checked>
+    <label for="mode-auto">Auto</label>
+    <input type="radio" name="mode" id="mode-assisted" value="assisted">
+    <label for="mode-assisted">Assisted (Claude)</label>
+  </div>
+
+  <button class="start-btn" id="start-btn" onclick="startAnalysis()">Start Analysis</button>
+</div>
+
+<!-- SCREEN 2: BUILDING -->
+<div id="screen-building" class="screen">
+  <h2 id="build-title">Setting up environment...</h2>
+  <div class="build-progress">
+    <div class="pct" id="build-pct">0%</div>
+    <div class="bar-track"><div class="bar-fill" id="build-fill"></div></div>
+  </div>
+  <div id="build-log"></div>
+</div>
+
+<!-- SCREEN 3: DASHBOARD -->
+<div id="screen-dashboard" class="screen">
+  <div class="dash-header">
+    <img id="dash-avatar" class="pkg-avatar" src="" style="display:none" />
+    <div class="header-text">
+      <h1 id="dash-title">repo-eval</h1>
+      <p id="dash-subtitle">Analysis</p>
+    </div>
+    <div class="header-actions">
+      <span id="dash-status" class="meta-tag">running...</span>
+      <span id="score-display"></span>
+      <button class="btn" id="btn-rerun" onclick="doRerun()" disabled>&#x21bb; Re-run</button>
+      <button class="btn primary" onclick="goConfig()">+ New</button>
+    </div>
+  </div>
+  <div class="dash-progress" id="dash-progress">
+    <div class="info"><span id="dp-label">Preparing...</span><span id="dp-count">0 / 0</span></div>
+    <div class="track"><div class="fill" id="dp-fill"></div></div>
+  </div>
+  <div class="dash-body">
+    <nav class="dash-sidebar" id="dash-sidebar"><h2>Steps</h2></nav>
+    <div class="dash-main" id="dash-main"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+<script src="https://unpkg.com/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+<script>
+// State
+let evtSource = null;
+let selectedTarget = null;
+let selectedMode = 'auto';
+let terminals = {};
+let stepTimers = {};
+let totalSteps = 0;
+let completedSteps = 0;
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ===== SCREEN 1: CONFIG =====
+
+function doSearch() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+  document.getElementById('search-results').innerHTML = '<p style="color:var(--muted);font-size:0.82rem">Searching...</p>';
+  fetch('/search?q=' + encodeURIComponent(q))
+    .then(r => r.json())
+    .then(results => {
+      const container = document.getElementById('search-results');
+      if (!results.length) {
+        container.innerHTML = '<p style="color:var(--muted);font-size:0.82rem">No results. Try a different name.</p>';
+        return;
+      }
+      container.innerHTML = '';
+      results.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        card.style.cursor = 'pointer';
+        card.innerHTML =
+          '<span class="pkg-name">' + r.name + '</span>' +
+          (r.version ? '<span class="pkg-version">' + r.version + '</span>' : '') +
+          (r.summary ? '<div class="pkg-summary">' + r.summary + '</div>' : '') +
+          (r.repo_url ? '<div class="pkg-repo">' + r.repo_url + '</div>' : '');
+        card.onclick = () => selectPackage(r);
+        container.appendChild(card);
+      });
+    });
+}
+
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+function selectPackage(pkg) {
+  selectedTarget = pkg.name;
+  document.querySelectorAll('.result-card').forEach(c => c.style.borderColor = 'var(--border)');
+  event.currentTarget.style.borderColor = 'var(--accent)';
+  document.getElementById('mode-toggle').style.display = 'flex';
+  document.getElementById('start-btn').style.display = 'inline-block';
+}
+
+function startAnalysis() {
+  if (!selectedTarget) return;
+  selectedMode = document.querySelector('input[name="mode"]:checked').value;
+  showScreen('screen-building');
+  document.getElementById('build-title').textContent = 'Setting up ' + selectedTarget + '...';
+
+  // Connect SSE first
+  connectSSE();
+  // Then trigger pipeline after SSE connects
+  setTimeout(() => {
+    fetch('/start', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({target: selectedTarget, mode: selectedMode}),
+    });
+  }, 500);
+}
+
+// ===== SCREEN 2: BUILDING =====
+
+function addBuildLog(msg) {
+  const el = document.getElementById('build-log');
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+
+function setBuildPct(pct) {
+  if (pct == null) return;
+  document.getElementById('build-pct').textContent = pct + '%';
+  document.getElementById('build-fill').style.width = pct + '%';
+}
+
+// ===== SCREEN 3: DASHBOARD =====
+
+function sevClass(s) { return s === 'pass' ? 'positive' : s === 'fail' ? 'negative' : 'warning'; }
+function sevIcon(s) { return s === 'pass' ? '+' : s === 'fail' ? 'x' : '!'; }
+
+function createStepPanel(stepId, stepName, order) {
+  if (document.getElementById('step-' + stepId)) return;
+
+  const link = document.createElement('a');
+  link.href = '#step-' + stepId;
+  link.innerHTML = '<span class="dot-s" id="dot-' + stepId + '"></span>' + stepName;
+  link.id = 'link-' + stepId;
+  document.getElementById('dash-sidebar').appendChild(link);
+
+  const panel = document.createElement('div');
+  panel.className = 'step-panel';
+  panel.id = 'step-' + stepId;
+  panel.innerHTML =
+    '<div class="panel-header">' +
+      '<span class="num">' + order + '</span>' +
+      '<span class="name">' + stepName + '</span>' +
+      '<span class="timer" id="timer-' + stepId + '"></span>' +
+      '<span class="badge" id="badge-' + stepId + '"></span>' +
+    '</div>' +
+    '<div class="panel-body">' +
+      '<div class="terminal-pane" id="term-' + stepId + '"></div>' +
+      '<div class="annotations-pane" id="ann-' + stepId + '"><span class="placeholder">Waiting...</span></div>' +
+    '</div>';
+  document.getElementById('dash-main').appendChild(panel);
+
+  const term = new window.Terminal({
+    theme: { background: '#1e1e2e', foreground: '#cdd6f4', cursor: '#f5e0dc', black: '#45475a', red: '#f38ba8', green: '#a6e3a1', yellow: '#f9e2af', blue: '#89b4fa', magenta: '#cba6f7', cyan: '#94e2d5', white: '#bac2de' },
+    fontFamily: "'JetBrains Mono', monospace", fontSize: 13, lineHeight: 1.35,
+    scrollback: 10000, convertEol: true, cursorStyle: 'underline', cursorBlink: false,
+  });
+  const fitAddon = new window.FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('term-' + stepId));
+  fitAddon.fit();
+  terminals[stepId] = { term, fitAddon };
+  window.addEventListener('resize', () => fitAddon.fit());
+}
+
+function addAnnotation(stepId, ann) {
+  const pane = document.getElementById('ann-' + stepId);
+  if (!pane) return;
+  const ph = pane.querySelector('.placeholder');
+  if (ph) ph.remove();
+  const div = document.createElement('div');
+  div.className = 'ann ' + sevClass(ann.severity);
+  div.innerHTML = '<span class="icon">' + sevIcon(ann.severity) + '</span><div><strong>' + ann.title + '</strong><span class="detail">' + ann.detail + '</span></div>';
+  pane.appendChild(div);
+}
+
+function startTimer(stepId) {
+  const start = Date.now();
+  stepTimers[stepId] = setInterval(() => {
+    const el = document.getElementById('timer-' + stepId);
+    if (el) el.textContent = ((Date.now() - start) / 1000).toFixed(1) + 's';
+  }, 100);
+}
+
+function stopTimer(stepId, dur) {
+  if (stepTimers[stepId]) clearInterval(stepTimers[stepId]);
+  const el = document.getElementById('timer-' + stepId);
+  if (el) el.textContent = dur + 's';
+}
+
+function updateDashProgress(label, completed) {
+  document.getElementById('dp-label').textContent = label;
+  document.getElementById('dp-count').textContent = completed + ' / ' + totalSteps;
+  document.getElementById('dp-fill').style.width = (totalSteps > 0 ? Math.round((completed / totalSteps) * 100) : 0) + '%';
+}
+
+function resetDashboard() {
+  document.getElementById('dash-main').innerHTML = '';
+  const sb = document.getElementById('dash-sidebar');
+  sb.innerHTML = '<h2>Steps</h2>';
+  document.getElementById('score-display').style.display = 'none';
+  document.getElementById('btn-rerun').disabled = true;
+  document.getElementById('dash-status').textContent = 'running...';
+  Object.keys(terminals).forEach(k => { terminals[k].term.dispose(); delete terminals[k]; });
+  Object.keys(stepTimers).forEach(k => clearInterval(stepTimers[k]));
+  totalSteps = 0; completedSteps = 0;
+}
+
+// ===== SSE =====
+
+function connectSSE() {
+  if (evtSource) { evtSource.close(); evtSource = null; }
+  evtSource = new EventSource('/events');
+
+  evtSource.onmessage = function(e) {
+    const evt = JSON.parse(e.data);
+
+    switch (evt.type) {
+      case 'build_log':
+        addBuildLog(evt.message);
+        if (evt.pct != null) setBuildPct(evt.pct);
+        break;
+
+      case 'phase':
+        if (evt.phase === 'building') {
+          showScreen('screen-building');
+          document.getElementById('build-title').textContent = 'Setting up ' + (evt.target || '') + '...';
+          document.getElementById('build-log').textContent = '';
+          setBuildPct(0);
+        } else if (evt.phase === 'dashboard') {
+          showScreen('screen-dashboard');
+          resetDashboard();
+          // Set branding
+          document.getElementById('dash-title').textContent = evt.package_name + (evt.package_version ? ' ' + evt.package_version : '');
+          document.getElementById('dash-subtitle').textContent = evt.description || 'Adoption barrier analysis';
+          if (evt.avatar_url) {
+            const av = document.getElementById('dash-avatar');
+            av.src = evt.avatar_url;
+            av.style.display = 'block';
+          }
+          totalSteps = evt.total_steps || evt.steps.length;
+          completedSteps = 0;
+          updateDashProgress('Starting...', 0);
+          evt.steps.forEach((s, i) => createStepPanel(s.id, s.name, i + 1));
+        } else if (evt.phase === 'analyzing') {
+          document.getElementById('dash-status').textContent = 'Claude analyzing...';
+        }
+        break;
+
+      case 'step_start': {
+        const dot = document.getElementById('dot-' + evt.step_id);
+        if (dot) dot.className = 'dot-s running';
+        const link = document.getElementById('link-' + evt.step_id);
+        if (link) link.className = 'active';
+        const panel = document.getElementById('step-' + evt.step_id);
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        startTimer(evt.step_id);
+        updateDashProgress(evt.step_name || evt.step_id, completedSteps);
+        break;
+      }
+
+      case 'terminal':
+        if (terminals[evt.step_id]) terminals[evt.step_id].term.write(evt.data);
+        break;
+
+      case 'step_done': {
+        stopTimer(evt.step_id, evt.duration);
+        completedSteps++;
+        const dot = document.getElementById('dot-' + evt.step_id);
+        if (dot) dot.className = 'dot-s ' + evt.status;
+        const link = document.getElementById('link-' + evt.step_id);
+        if (link) link.className = evt.status;
+        const badge = document.getElementById('badge-' + evt.step_id);
+        if (badge) { badge.textContent = evt.status; badge.className = 'badge ' + evt.status; }
+        if (evt.annotations) evt.annotations.forEach(a => addAnnotation(evt.step_id, a));
+        updateDashProgress(evt.step_id + ' done', completedSteps);
+        break;
+      }
+
+      case 'enriched': {
+        // Replace annotations from Claude
+        const pane = document.getElementById('ann-' + evt.step_id);
+        if (pane) {
+          pane.innerHTML = '';
+          evt.annotations.forEach(a => addAnnotation(evt.step_id, a));
+        }
+        const dot2 = document.getElementById('dot-' + evt.step_id);
+        if (dot2) dot2.className = 'dot-s ' + evt.status;
+        const badge2 = document.getElementById('badge-' + evt.step_id);
+        if (badge2) { badge2.textContent = evt.status; badge2.className = 'badge ' + evt.status; }
+        break;
+      }
+
+      case 'version':
+        if (evt.package_version) {
+          const t = document.getElementById('dash-title').textContent;
+          if (!t.includes(evt.package_version))
+            document.getElementById('dash-title').textContent = t.trim() + ' ' + evt.package_version;
+        }
+        break;
+
+      case 'done':
+        document.getElementById('dash-status').textContent = 'complete';
+        document.getElementById('btn-rerun').disabled = false;
+        if (evt.score != null) {
+          const s = document.getElementById('score-display');
+          s.textContent = evt.score + '/100';
+          s.style.display = 'inline';
+          s.style.color = evt.score >= 70 ? 'var(--positive)' : evt.score >= 40 ? 'var(--warning)' : 'var(--negative)';
+        }
+        break;
+    }
+  };
+}
+
+function doRerun() {
+  if (evtSource) { evtSource.close(); evtSource = null; }
+  showScreen('screen-building');
+  document.getElementById('build-title').textContent = 'Rebuilding environment...';
+  document.getElementById('build-log').textContent = '';
+  setBuildPct(0);
+  connectSSE();
+  setTimeout(() => {
+    fetch('/rerun', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({target: selectedTarget, mode: selectedMode}),
+    });
+  }, 500);
+}
+
+function goConfig() {
+  if (evtSource) { evtSource.close(); evtSource = null; }
+  showScreen('screen-config');
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-results').innerHTML = '';
+  document.getElementById('mode-toggle').style.display = 'none';
+  document.getElementById('start-btn').style.display = 'none';
+  selectedTarget = null;
+}
+</script>
+</body>
+</html>
